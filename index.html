@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Memoir Editor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #manuscript-input {
+            width: 100%;
+            height: 300px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>AI Memoir Editor</h1>
+    <textarea id="manuscript-input" placeholder="Paste your manuscript here..."></textarea>
+    <div>
+        <button id="analyze-btn">Analyze Manuscript</button>
+    </div>
+    <div id="suggestions-output"></div>
+
+    <script>
+        document.getElementById('analyze-btn').addEventListener('click', async () => {
+            const manuscriptText = document.getElementById('manuscript-input').value;
+            const suggestionsOutput = document.getElementById('suggestions-output');
+
+            // Placeholder for AI analysis
+            suggestionsOutput.innerHTML = 'Analyzing manuscript...';
+
+            // In future, this will call backend AI analysis
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text: manuscriptText })
+                });
+                const suggestions = await response.json();
+                suggestionsOutput.innerHTML = JSON.stringify(suggestions, null, 2);
+            } catch (error) {
+                suggestionsOutput.innerHTML = 'Error analyzing manuscript';
+            }
+        });
+    </script>
+</body>
+</html>

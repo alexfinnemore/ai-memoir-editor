@@ -1,0 +1,11 @@
+{
+    "name": "ai-memoir-editor",
+    "version": "0.1.0",
+    "description": "AI-powered manuscript editing web application",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js"
+    },
+    "dependencies": {},
+    "devDependencies": {}
+}
