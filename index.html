@@ -9,7 +9,6 @@
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
-            line-height: 1.6;
         }
         .editor-container {
             display: flex;
@@ -36,30 +35,34 @@
             width: 100%;
             height: 500px;
             padding: 10px;
-            font-size: 16px;
+            font-size: 14px;
             line-height: 1.6;
             border: 1px solid #ccc;
             border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
         }
         #edited-display {
             width: 100%;
             height: 500px;
             padding: 10px;
-            font-size: 16px;
+            font-size: 14px;
             line-height: 1.6;
             border: 1px solid #ccc;
             border-radius: 4px;
             overflow-y: auto;
             background-color: white;
+            font-family: monospace;
+            white-space: pre-wrap;
         }
-        .addition {
+        .error-highlight {
+            background-color: #ffe6e6;
+            text-decoration: line-through;
+            color: #cc0000;
+        }
+        .fix-highlight {
             background-color: #e6ffe6;
             color: #006600;
-        }
-        .deletion {
-            background-color: #ffe6e6;
-            color: #cc0000;
-            text-decoration: line-through;
         }
         #analyze-btn {
             padding: 10px 20px;
@@ -71,27 +74,6 @@
             cursor: pointer;
             margin-top: 10px;
         }
-        #analyze-btn:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-        #status {
-            margin: 10px 0;
-            padding: 10px;
-            border-radius: 4px;
-        }
-        .error {
-            background-color: #ffebee;
-            color: #c62828;
-        }
-        .success {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-        }
-        h2 {
-            color: #333;
-            margin: 0;
-        }
         #changes-list {
             margin-top: 20px;
             padding: 20px;
@@ -99,8 +81,8 @@
             border-radius: 4px;
         }
         .change-item {
-            margin-bottom: 10px;
-            padding: 10px;
+            margin-bottom: 15px;
+            padding: 15px;
             border-left: 4px solid #4CAF50;
             background-color: white;
         }
@@ -108,15 +90,28 @@
             font-weight: bold;
             color: #2196F3;
             text-transform: capitalize;
+            margin-bottom: 5px;
         }
-        .word-count-change {
-            color: #666;
-            font-size: 14px;
-            margin-top: 10px;
-            padding: 10px;
+        .change-details {
+            margin-top: 5px;
+        }
+        .change-text {
+            font-family: monospace;
             background-color: #f8f9fa;
+            padding: 5px;
+            margin: 5px 0;
+        }
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+            padding: 10px;
             border-radius: 4px;
-            display: none;
+        }
+        .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            padding: 10px;
+            border-radius: 4px;
         }
     </style>
 </head>
@@ -136,7 +131,7 @@
                 <h2>Edited Text</h2>
                 <span id="edited-word-count" class="word-count">0 words</span>
             </div>
-            <div id="edited-display"></div>
+            <div id="edited-display" class="text-area"></div>
         </div>
     </div>
     
@@ -145,7 +140,6 @@
     </div>
 
     <div id="status" style="display: none;"></div>
-    <div id="word-count-summary" class="word-count-change"></div>
     
     <div id="changes-list">
         <h2>Changes Made</h2>
@@ -153,75 +147,49 @@
     </div>
 
     <script>
-        const statusDiv = document.getElementById('status');
-        const analyzeBtn = document.getElementById('analyze-btn');
-        const editedDisplay = document.getElementById('edited-display');
-        const changesList = document.getElementById('changes-content');
-        const originalWordCount = document.getElementById('original-word-count');
-        const editedWordCount = document.getElementById('edited-word-count');
-        const wordCountSummary = document.getElementById('word-count-summary');
-        const manuscriptInput = document.getElementById('manuscript-input');
-
         function countWords(text) {
             return text.trim().split(/\s+/).filter(word => word.length > 0).length;
         }
 
-        function updateWordCount() {
-            const count = countWords(manuscriptInput.value);
-            originalWordCount.textContent = `${count} words`;
-        }
-
-        function updateEditedWordCount(text) {
-            // Remove the markup before counting
-            const cleanText = text.replace(/\{\+(.+?)\+\}/g, '$1').replace(/\{\-(.+?)\-\}/g, '');
-            const count = countWords(cleanText);
-            editedWordCount.textContent = `${count} words`;
-            return count;
-        }
-
-        function showWordCountChange(originalCount, editedCount) {
-            const difference = editedCount - originalCount;
-            const percentChange = ((difference / originalCount) * 100).toFixed(1);
-            
-            let changeDescription = `Word count changed from ${originalCount} to ${editedCount} `;
-            if (difference > 0) {
-                changeDescription += `(+${difference} words, +${percentChange}%)`;
-            } else if (difference < 0) {
-                changeDescription += `(${difference} words, ${percentChange}%)`;
-            } else {
-                changeDescription += '(no change)';
-            }
-            
-            wordCountSummary.textContent = changeDescription;
-            wordCountSummary.style.display = 'block';
-        }
-
         function showStatus(message, isError = false) {
+            const statusDiv = document.getElementById('status');
             statusDiv.textContent = message;
             statusDiv.style.display = 'block';
             statusDiv.className = isError ? 'error' : 'success';
         }
 
+        function formatEditedText(text) {
+            return text
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/&lt;ERR&gt;(.+?)&lt;\/ERR&gt;/g, '<span class="error-highlight">$1</span>')
+                .replace(/&lt;FIX&gt;(.+?)&lt;\/FIX&gt;/g, '<span class="fix-highlight">$1</span>');
+        }
+
         function displayChanges(changes) {
-            changesList.innerHTML = changes.map(change => `
+            const changesContent = document.getElementById('changes-content');
+            changesContent.innerHTML = changes.map(change => `
                 <div class="change-item">
-                    <span class="change-type">${change.type}:</span>
-                    <span>${change.description}</span>
+                    <div class="change-type">${change.type}</div>
+                    <div class="change-text">Before: ${change.before}</div>
+                    <div class="change-text">After: ${change.after}</div>
+                    <div class="change-details">${change.explanation}</div>
                 </div>
             `).join('');
         }
 
-        function formatEditedText(text) {
-            return text
-                .replace(/\{\+(.+?)\+\}/g, '<span class="addition">$1</span>')
-                .replace(/\{\-(.+?)\-\}/g, '<span class="deletion">$1</span>');
+        function updateWordCount() {
+            const text = document.getElementById('manuscript-input').value;
+            const count = countWords(text);
+            document.getElementById('original-word-count').textContent = `${count} words`;
         }
 
-        manuscriptInput.addEventListener('input', updateWordCount);
+        document.getElementById('manuscript-input').addEventListener('input', updateWordCount);
 
-        analyzeBtn.addEventListener('click', async () => {
-            const manuscriptText = manuscriptInput.value;
-            const originalCount = countWords(manuscriptText);
+        document.getElementById('analyze-btn').addEventListener('click', async () => {
+            const manuscriptText = document.getElementById('manuscript-input').value;
+            const analyzeBtn = document.getElementById('analyze-btn');
+            const editedDisplay = document.getElementById('edited-display');
 
             if (!manuscriptText.trim()) {
                 showStatus('Please enter some text to edit', true);
@@ -231,15 +199,11 @@
             analyzeBtn.disabled = true;
             showStatus('Editing text...');
             editedDisplay.innerHTML = '';
-            changesList.innerHTML = '';
-            wordCountSummary.style.display = 'none';
 
             try {
                 const response = await fetch('/analyze', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ text: manuscriptText })
                 });
 
@@ -250,12 +214,12 @@
                 }
 
                 if (result.success) {
-                    showStatus('Editing complete', false);
+                    showStatus('Editing complete');
                     editedDisplay.innerHTML = formatEditedText(result.editedText);
                     displayChanges(result.changes);
                     
-                    const editedCount = updateEditedWordCount(result.editedText);
-                    showWordCountChange(originalCount, editedCount);
+                    const editedCount = countWords(result.editedText.replace(/<[^>]+>/g, ''));
+                    document.getElementById('edited-word-count').textContent = `${editedCount} words`;
                 } else {
                     throw new Error(result.error || 'Editing failed');
                 }
