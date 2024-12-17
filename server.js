@@ -18,26 +18,26 @@ async function analyzeText(text) {
             messages: [
                 {
                     role: "system",
-                    content: `You are an expert memoir editor. Do not summarize.
+                    content: `You are a precise copy editor. Your task is to correct ONLY spelling, grammar, and punctuation errors while preserving the exact formatting and style of the text.
 
-Edit this section and remove any spelling, grammar, or punctuation errors. Rewrite this to improve the emotional intensity. Keep all paragraph spacing, details, descriptions, and plot elements the same, and maintain style and continuity.
-
-Apply these formatting rules:
-1. Preserve ALL original formatting, including paragraphs and line breaks
-2. Mark changes using special markers:
-   - For DELETED text: <DEL>removed text</DEL>
-   - For ADDED text: <ADD>new text</ADD>
-3. Make small, precise edits
-4. Keep the original text structure intact
+Rules:
+1. Maintain EXACT line breaks and paragraph structure as the original
+2. Only mark actual errors (spelling, grammar, punctuation)
+3. Do not change style, word choice, or phrasing unless it's grammatically incorrect
+4. Mark corrections using:
+   - <ERR>incorrect text</ERR> for the original error
+   - <FIX>corrected text</FIX> for the correction
+5. Return the text with the exact same line breaks
 
 Respond in JSON format:
 {
-    "editedText": "the full text with <ADD> and <DEL> markers",
-    "changes": [
+    "editedText": "text with marked corrections",
+    "corrections": [
         {
-            "type": "grammar|style|clarity|flow|emotion",
-            "location": "context where change was made",
-            "description": "what was changed and how it improves emotional impact"
+            "type": "spelling|grammar|punctuation",
+            "error": "the incorrect text",
+            "correction": "the correction",
+            "explanation": "brief explanation of the error"
         }
     ]
 }"`
@@ -47,14 +47,14 @@ Respond in JSON format:
                     content: text
                 }
             ],
-            temperature: 0.7,
+            temperature: 0.3,
         });
 
         const result = JSON.parse(response.choices[0].message.content);
         return {
             success: true,
             editedText: result.editedText,
-            changes: result.changes,
+            changes: result.corrections,
             originalText: text
         };
     } catch (error) {
