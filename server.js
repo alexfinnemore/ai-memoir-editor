@@ -29,21 +29,31 @@ Editing Instructions:
    - <FIX>corrected text</FIX>
 5. Make other style improvements directly in the text WITHOUT marking them
 
-Respond in JSON format:
+For EACH change, provide detailed information in this format:
 {
     "editedText": "improved text with marked technical corrections",
     "changes": [
         {
-            "type": "technical|style",
-            "location": "context of the change",
-            "description": "what was changed and why"
+            "type": "technical",
+            "originalText": "exact original text",
+            "newText": "exact new text",
+            "reason": "Detailed explanation of why this needed fixing and how it improves the text",
+            "rule": "The specific grammar/spelling/punctuation rule that applies"
+        },
+        {
+            "type": "style",
+            "originalText": "exact original phrase or sentence",
+            "newText": "exact new phrase or sentence",
+            "improvement": "Specific explanation of how this change enhances the writing",
+            "impact": "How this change affects the reader's experience"
         }
     ]
 }
 
-Example of correct output format:
-"I seen him yesterday" → "I <ERR>seen</ERR><FIX>saw</FIX> him yesterday, his energy lighting up the room."
-(Grammar error marked, style improvement unmarked)`
+Example of a good change description:
+Technical: "Original 'I seen him' was grammatically incorrect. Changed to 'I saw him' to use correct past tense form. Rule: 'See' is irregular - past tense is 'saw' not 'seen'."
+
+Style: "Original 'He walked into the room' was bland. Changed to 'He strode purposefully into the room' to better convey character's confidence and intention. Impact: Helps reader visualize the character's presence and personality."`
                 },
                 {
                     role: "user",
