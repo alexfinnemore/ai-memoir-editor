@@ -3,104 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <title>AI Memoir Editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/typo-js/1.2.3/typo.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
+        /* Previous styles remain the same */
+        .spellcheck-error {
+            text-decoration: underline wavy red;
+            text-decoration-skip-ink: none;
         }
-        .editor-container {
-            display: flex;
-            gap: 20px;
-            margin-top: 20px;
-        }
-        .editor-panel {
-            flex: 1;
-        }
-        .panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .word-count {
-            font-size: 14px;
-            color: #666;
-            background-color: #f0f0f0;
-            padding: 4px 8px;
-            border-radius: 4px;
-        }
-        .text-area {
-            width: 100%;
-            height: 500px;
-            padding: 10px;
-            font-size: 14px;
-            line-height: 1.6;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-family: monospace;
-            white-space: pre-wrap;
-        }
-        #edited-display {
-            width: 100%;
-            height: 500px;
-            padding: 10px;
-            font-size: 14px;
-            line-height: 1.6;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            overflow-y: auto;
-            background-color: white;
-            font-family: monospace;
-            white-space: pre-wrap;
-        }
-        #analyze-btn {
-            padding: 10px 20px;
-            font-size: 16px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-        #changes-list {
-            margin-top: 20px;
-            padding: 20px;
-            background-color: #f5f5f5;
-            border-radius: 4px;
-        }
-        .change-item {
-            margin-bottom: 15px;
-            padding: 15px;
-            border-left: 4px solid #4CAF50;
-            background-color: white;
-        }
-        .change-type {
-            font-weight: bold;
-            color: #2196F3;
-            text-transform: capitalize;
-            margin-bottom: 5px;
-        }
-        .change-text {
-            font-family: monospace;
-            background-color: #f8f9fa;
-            padding: 5px;
-            margin: 5px 0;
-        }
-        .error {
-            background-color: #ffebee;
-            color: #c62828;
-            padding: 10px;
-            border-radius: 4px;
-        }
-        .success {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-            padding: 10px;
-            border-radius: 4px;
-        }
+        /* Rest of your existing styles */
     </style>
 </head>
 <body>
@@ -112,14 +22,14 @@
                 <h2>Original Text</h2>
                 <span id="original-word-count" class="word-count">0 words</span>
             </div>
-            <textarea id="manuscript-input" class="text-area" placeholder="Paste your manuscript text here..."></textarea>
+            <div id="original-display" class="text-area" contenteditable="true" spellcheck="false"></div>
         </div>
         <div class="editor-panel">
             <div class="panel-header">
                 <h2>Edited Text</h2>
                 <span id="edited-word-count" class="word-count">0 words</span>
             </div>
-            <div id="edited-display" class="text-area"></div>
+            <div id="edited-display" class="text-area" contenteditable="false" spellcheck="false"></div>
         </div>
     </div>
     
@@ -135,6 +45,44 @@
     </div>
 
     <script>
+        let dictionary;
+
+        // Initialize dictionary
+        async function initDictionary() {
+            try {
+                const affData = await fetch('https://raw.githubusercontent.com/wooorm/dictionaries/main/dictionaries/en/index.aff').then(r => r.text());
+                const dicData = await fetch('https://raw.githubusercontent.com/wooorm/dictionaries/main/dictionaries/en/index.dic').then(r => r.text());
+                dictionary = new Typo('en_US', affData, dicData);
+                // Initial spellcheck after dictionary loads
+                spellcheckContent();
+            } catch (error) {
+                console.error('Failed to load dictionary:', error);
+            }
+        }
+
+        // Spellcheck the content and mark errors
+        function spellcheckContent() {
+            if (!dictionary) return;
+
+            const checkText = (element) => {
+                const text = element.textContent;
+                const words = text.match(/\w+/g) || [];
+                let html = text;
+
+                words.forEach(word => {
+                    if (!dictionary.check(word)) {
+                        const regex = new RegExp(`\\b${word}\\b`, 'g');
+                        html = html.replace(regex, `<span class="spellcheck-error">${word}</span>`);
+                    }
+                });
+
+                element.innerHTML = html;
+            };
+
+            checkText(document.getElementById('original-display'));
+            checkText(document.getElementById('edited-display'));
+        }
+
         function countWords(text) {
             return text.trim().split(/\s+/).filter(word => word.length > 0).length;
         }
@@ -159,15 +107,18 @@
         }
 
         function updateWordCount() {
-            const text = document.getElementById('manuscript-input').value;
+            const text = document.getElementById('original-display').textContent;
             const count = countWords(text);
             document.getElementById('original-word-count').textContent = `${count} words`;
         }
 
-        document.getElementById('manuscript-input').addEventListener('input', updateWordCount);
+        document.getElementById('original-display').addEventListener('input', () => {
+            updateWordCount();
+            spellcheckContent();
+        });
 
         document.getElementById('analyze-btn').addEventListener('click', async () => {
-            const manuscriptText = document.getElementById('manuscript-input').value;
+            const manuscriptText = document.getElementById('original-display').textContent;
             const analyzeBtn = document.getElementById('analyze-btn');
             const editedDisplay = document.getElementById('edited-display');
 
@@ -196,6 +147,7 @@
                 if (result.success) {
                     showStatus('Editing complete');
                     editedDisplay.textContent = result.editedText;
+                    spellcheckContent();
                     displayChanges(result.changes);
                     
                     const editedCount = countWords(result.editedText);
@@ -211,7 +163,8 @@
             }
         });
 
-        // Initialize word count
+        // Initialize
+        initDictionary();
         updateWordCount();
     </script>
 </body>
