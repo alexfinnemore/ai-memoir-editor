@@ -55,15 +55,6 @@
             font-family: monospace;
             white-space: pre-wrap;
         }
-        .error-highlight {
-            background-color: #ffe6e6;
-            text-decoration: line-through;
-            color: #cc0000;
-        }
-        .fix-highlight {
-            background-color: #e6ffe6;
-            color: #006600;
-        }
         #analyze-btn {
             padding: 10px 20px;
             font-size: 16px;
@@ -91,9 +82,6 @@
             color: #2196F3;
             text-transform: capitalize;
             margin-bottom: 5px;
-        }
-        .change-details {
-            margin-top: 5px;
         }
         .change-text {
             font-family: monospace;
@@ -158,14 +146,6 @@
             statusDiv.className = isError ? 'error' : 'success';
         }
 
-        function formatEditedText(text) {
-            return text
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/&lt;ERR&gt;(.+?)&lt;\/ERR&gt;/g, '<span class="error-highlight">$1</span>')
-                .replace(/&lt;FIX&gt;(.+?)&lt;\/FIX&gt;/g, '<span class="fix-highlight">$1</span>');
-        }
-
         function displayChanges(changes) {
             const changesContent = document.getElementById('changes-content');
             changesContent.innerHTML = changes.map(change => `
@@ -198,7 +178,7 @@
 
             analyzeBtn.disabled = true;
             showStatus('Editing text...');
-            editedDisplay.innerHTML = '';
+            editedDisplay.textContent = '';
 
             try {
                 const response = await fetch('/analyze', {
@@ -215,10 +195,10 @@
 
                 if (result.success) {
                     showStatus('Editing complete');
-                    editedDisplay.innerHTML = formatEditedText(result.editedText);
+                    editedDisplay.textContent = result.editedText;
                     displayChanges(result.changes);
                     
-                    const editedCount = countWords(result.editedText.replace(/<[^>]+>/g, ''));
+                    const editedCount = countWords(result.editedText);
                     document.getElementById('edited-word-count').textContent = `${editedCount} words`;
                 } else {
                     throw new Error(result.error || 'Editing failed');
