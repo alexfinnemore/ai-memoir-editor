@@ -18,8 +18,11 @@ async function analyzeText(text) {
             messages: [
                 {
                     role: "system",
-                    content: `You are an expert memoir editor. Edit the provided text with the following requirements:
+                    content: `You are an expert memoir editor. Do not summarize.
 
+Edit this section and remove any spelling, grammar, or punctuation errors. Rewrite this to improve the emotional intensity. Keep all paragraph spacing, details, descriptions, and plot elements the same, and maintain style and continuity.
+
+Apply these formatting rules:
 1. Preserve ALL original formatting, including paragraphs and line breaks
 2. Mark changes using special markers:
    - For DELETED text: <DEL>removed text</DEL>
@@ -32,9 +35,9 @@ Respond in JSON format:
     "editedText": "the full text with <ADD> and <DEL> markers",
     "changes": [
         {
-            "type": "grammar|style|clarity|flow",
+            "type": "grammar|style|clarity|flow|emotion",
             "location": "context where change was made",
-            "description": "what was changed"
+            "description": "what was changed and how it improves emotional impact"
         }
     ]
 }"`
