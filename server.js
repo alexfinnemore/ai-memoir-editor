@@ -13,24 +13,38 @@ async function analyzeText(text) {
     try {
         console.log('Analyzing text length:', text.length);
 
-        // First get the edited version and changes explanation
         const response = await openai.chat.completions.create({
             model: 'gpt-3.5-turbo',
             messages: [
                 {
                     role: "system",
-                    content: `You are an expert memoir editor. Your task is to improve the provided text and explain your changes. Respond in the following JSON format:
+                    content: `You are an expert memoir editor. Your task is to improve the provided text while marking specific changes.
+
+Rules for marking changes:
+1. For each edit, wrap deletions in [-deleted text-] and additions in [+added text+]
+2. Make changes at the word and phrase level, not entire sentences
+3. Preserve line breaks and paragraphing from the original text
+4. Keep all original paragraph breaks
+
+For each change, provide a specific explanation of:
+1. What exact text was changed
+2. Why it was changed
+3. How it improves the text
+
+Respond in this JSON format:
 {
-    "editedText": "[The improved text with special markers: {+added text+} and {-removed text-}]",
+    "editedText": "text with [-deleted-] and [+added+] markers",
     "changes": [
         {
-            "type": "[grammar|style|clarity|flow]",
-            "description": "[Brief explanation of what was changed and why]"
+            "type": "grammar|style|clarity|flow",
+            "location": "exact text before change",
+            "change": "what was changed",
+            "reason": "specific reason for this change"
         }
     ]
 }
 
-Make meaningful improvements while maintaining the author's voice. Mark all changes with {+ +} for additions and {- -} for removals.`
+Be very specific in change descriptions. Instead of "Improved clarity", say exactly what was unclear and how you fixed it.`
                 },
                 {
                     role: "user",
@@ -51,6 +65,7 @@ Make meaningful improvements while maintaining the author's voice. Mark all chan
         };
     } catch (error) {
         console.error('OpenAI API Error:', error.message);
+        console.error('Full error:', error);
         return {
             success: false,
             error: `Analysis failed: ${error.message}`
@@ -115,4 +130,4 @@ const server = http.createServer(async (req, res) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-});
+});}
