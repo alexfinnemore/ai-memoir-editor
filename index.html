@@ -19,6 +19,19 @@
         .editor-panel {
             flex: 1;
         }
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .word-count {
+            font-size: 14px;
+            color: #666;
+            background-color: #f0f0f0;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
         .text-area {
             width: 100%;
             height: 500px;
@@ -77,7 +90,7 @@
         }
         h2 {
             color: #333;
-            margin-bottom: 10px;
+            margin: 0;
         }
         #changes-list {
             margin-top: 20px;
@@ -96,6 +109,15 @@
             color: #2196F3;
             text-transform: capitalize;
         }
+        .word-count-change {
+            color: #666;
+            font-size: 14px;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -103,11 +125,17 @@
     
     <div class="editor-container">
         <div class="editor-panel">
-            <h2>Original Text</h2>
+            <div class="panel-header">
+                <h2>Original Text</h2>
+                <span id="original-word-count" class="word-count">0 words</span>
+            </div>
             <textarea id="manuscript-input" class="text-area" placeholder="Paste your manuscript text here..."></textarea>
         </div>
         <div class="editor-panel">
-            <h2>Edited Text</h2>
+            <div class="panel-header">
+                <h2>Edited Text</h2>
+                <span id="edited-word-count" class="word-count">0 words</span>
+            </div>
             <div id="edited-display"></div>
         </div>
     </div>
@@ -117,6 +145,7 @@
     </div>
 
     <div id="status" style="display: none;"></div>
+    <div id="word-count-summary" class="word-count-change"></div>
     
     <div id="changes-list">
         <h2>Changes Made</h2>
@@ -128,6 +157,44 @@
         const analyzeBtn = document.getElementById('analyze-btn');
         const editedDisplay = document.getElementById('edited-display');
         const changesList = document.getElementById('changes-content');
+        const originalWordCount = document.getElementById('original-word-count');
+        const editedWordCount = document.getElementById('edited-word-count');
+        const wordCountSummary = document.getElementById('word-count-summary');
+        const manuscriptInput = document.getElementById('manuscript-input');
+
+        function countWords(text) {
+            return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+        }
+
+        function updateWordCount() {
+            const count = countWords(manuscriptInput.value);
+            originalWordCount.textContent = `${count} words`;
+        }
+
+        function updateEditedWordCount(text) {
+            // Remove the markup before counting
+            const cleanText = text.replace(/\{\+(.+?)\+\}/g, '$1').replace(/\{\-(.+?)\-\}/g, '');
+            const count = countWords(cleanText);
+            editedWordCount.textContent = `${count} words`;
+            return count;
+        }
+
+        function showWordCountChange(originalCount, editedCount) {
+            const difference = editedCount - originalCount;
+            const percentChange = ((difference / originalCount) * 100).toFixed(1);
+            
+            let changeDescription = `Word count changed from ${originalCount} to ${editedCount} `;
+            if (difference > 0) {
+                changeDescription += `(+${difference} words, +${percentChange}%)`;
+            } else if (difference < 0) {
+                changeDescription += `(${difference} words, ${percentChange}%)`;
+            } else {
+                changeDescription += '(no change)';
+            }
+            
+            wordCountSummary.textContent = changeDescription;
+            wordCountSummary.style.display = 'block';
+        }
 
         function showStatus(message, isError = false) {
             statusDiv.textContent = message;
@@ -145,14 +212,16 @@
         }
 
         function formatEditedText(text) {
-            // Replace the markers with HTML spans for styling
             return text
                 .replace(/\{\+(.+?)\+\}/g, '<span class="addition">$1</span>')
                 .replace(/\{\-(.+?)\-\}/g, '<span class="deletion">$1</span>');
         }
 
+        manuscriptInput.addEventListener('input', updateWordCount);
+
         analyzeBtn.addEventListener('click', async () => {
-            const manuscriptText = document.getElementById('manuscript-input').value;
+            const manuscriptText = manuscriptInput.value;
+            const originalCount = countWords(manuscriptText);
 
             if (!manuscriptText.trim()) {
                 showStatus('Please enter some text to edit', true);
@@ -163,6 +232,7 @@
             showStatus('Editing text...');
             editedDisplay.innerHTML = '';
             changesList.innerHTML = '';
+            wordCountSummary.style.display = 'none';
 
             try {
                 const response = await fetch('/analyze', {
@@ -183,6 +253,9 @@
                     showStatus('Editing complete', false);
                     editedDisplay.innerHTML = formatEditedText(result.editedText);
                     displayChanges(result.changes);
+                    
+                    const editedCount = updateEditedWordCount(result.editedText);
+                    showWordCountChange(originalCount, editedCount);
                 } else {
                     throw new Error(result.error || 'Editing failed');
                 }
@@ -193,6 +266,9 @@
                 analyzeBtn.disabled = false;
             }
         });
+
+        // Initialize word count
+        updateWordCount();
     </script>
 </body>
 </html>
