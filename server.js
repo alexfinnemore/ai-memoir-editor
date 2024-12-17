@@ -9,13 +9,42 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
+// Array of models to try, in order of preference
+const MODELS = [
+    'gpt-3.5-turbo',
+    'gpt-3.5-turbo-16k',
+    'gpt-4-turbo-preview',
+    'gpt-4'
+];
+
+async function findAvailableModel() {
+    for (const model of MODELS) {
+        try {
+            await openai.chat.completions.create({
+                model: model,
+                messages: [{ role: 'user', content: 'test' }],
+                max_tokens: 5
+            });
+            console.log(`Using model: ${model}`);
+            return model;
+        } catch (error) {
+            console.log(`Model ${model} not available:`, error.message);
+            continue;
+        }
+    }
+    throw new Error('No available models found');
+}
+
 async function analyzeText(text) {
     try {
         console.log('Analyzing text length:', text.length);
-        console.log('Using API key:', process.env.OPENAI_API_KEY ? 'Key present' : 'No key found');
+        
+        // Find available model
+        const model = await findAvailableModel();
+        console.log('Selected model:', model);
 
         const response = await openai.chat.completions.create({
-            model: "gpt-4",
+            model: model,
             messages: [
                 {
                     role: "system",
