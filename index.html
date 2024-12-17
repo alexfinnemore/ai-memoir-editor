@@ -41,10 +41,10 @@
             border-radius: 4px;
             font-family: monospace;
             white-space: pre-wrap;
-            overflow-y: auto;
         }
         #edited-display {
             background-color: #fff;
+            overflow-y: auto;
         }
         #analyze-btn {
             padding: 10px 20px;
@@ -56,7 +56,7 @@
             cursor: pointer;
             margin-top: 10px;
         }
-        #changes-list {
+        #changes-display {
             margin-top: 20px;
             padding: 20px;
             background-color: #f5f5f5;
@@ -71,14 +71,14 @@
         .change-type {
             font-weight: bold;
             color: #2196F3;
-            text-transform: capitalize;
             margin-bottom: 5px;
         }
-        .change-text {
+        pre {
+            white-space: pre-wrap;
+            margin: 0;
             font-family: monospace;
             background-color: #f8f9fa;
             padding: 5px;
-            margin: 5px 0;
         }
     </style>
 </head>
@@ -96,7 +96,6 @@
                 class="text-area" 
                 placeholder="Paste your manuscript text here..."
                 spellcheck="true"
-                lang="en"
             ></textarea>
         </div>
         <div class="editor-panel">
@@ -104,13 +103,7 @@
                 <h2>Edited Text</h2>
                 <span id="edited-word-count" class="word-count">0 words</span>
             </div>
-            <div 
-                id="edited-display" 
-                class="text-area" 
-                contenteditable="true"
-                spellcheck="true"
-                lang="en"
-            ></div>
+            <div id="edited-display" class="text-area"></div>
         </div>
     </div>
     
@@ -118,7 +111,7 @@
         <button id="analyze-btn">Edit Text</button>
     </div>
 
-    <div id="changes-list">
+    <div id="changes-display">
         <h2>Changes Made</h2>
         <div id="changes-content"></div>
     </div>
@@ -134,16 +127,22 @@
             document.getElementById('original-word-count').textContent = `${count} words`;
         }
 
-        function displayChanges(changes) {
+        function displayChanges(aiChanges, diffChanges) {
             const changesContent = document.getElementById('changes-content');
-            changesContent.innerHTML = changes.map(change => `
-                <div class="change-item">
-                    <div class="change-type">${change.type}</div>
-                    <div class="change-text">Before: ${change.before}</div>
-                    <div class="change-text">After: ${change.after}</div>
-                    <div class="change-details">${change.explanation}</div>
-                </div>
-            `).join('');
+            let html = '<h3>AI-Reported Changes:</h3>';
+            
+            if (Array.isArray(aiChanges)) {
+                html += aiChanges.map(change => `
+                    <div class="change-item">
+                        <div class="change-type">${change.type || 'Change'}</div>
+                        <pre>Before: ${change.before || ''}</pre>
+                        <pre>After: ${change.after || ''}</pre>
+                        <div>${change.explanation || ''}</div>
+                    </div>
+                `).join('');
+            }
+
+            changesContent.innerHTML = html;
         }
 
         document.getElementById('manuscript-input').addEventListener('input', updateWordCount);
@@ -176,7 +175,7 @@
 
                 if (result.success) {
                     editedDisplay.textContent = result.editedText;
-                    displayChanges(result.changes);
+                    displayChanges(result.aiReportedChanges, result.actualChanges);
                     
                     const editedCount = countWords(result.editedText);
                     document.getElementById('edited-word-count').textContent = `${editedCount} words`;
