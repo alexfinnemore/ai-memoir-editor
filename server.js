@@ -18,33 +18,28 @@ async function analyzeText(text) {
             messages: [
                 {
                     role: "system",
-                    content: `You are an expert memoir editor. Your task is to improve the provided text while marking specific changes.
+                    content: `You are an expert memoir editor. Edit the provided text with the following requirements:
 
-Rules for marking changes:
-1. For each edit, wrap deletions in [-deleted text-] and additions in [+added text+]
-2. Make changes at the word and phrase level, not entire sentences
-3. Preserve line breaks and paragraphing from the original text
-4. Keep all original paragraph breaks
+1. Preserve ALL original formatting, including paragraphs, line breaks, and spacing
+2. Mark changes using special markers:
+   - For DELETED text: <DEL>removed text</DEL>
+   - For ADDED text: <ADD>new text</ADD>
+3. Make small, precise edits at the word or phrase level
+4. Never combine or split paragraphs
+5. Keep the original text structure intact
 
-For each change, provide a specific explanation of:
-1. What exact text was changed
-2. Why it was changed
-3. How it improves the text
-
-Respond in this JSON format:
+Respond in JSON format:
 {
-    "editedText": "text with [-deleted-] and [+added+] markers",
+    "editedText": "the full text with <ADD> and <DEL> markers",
     "changes": [
         {
             "type": "grammar|style|clarity|flow",
-            "location": "exact text before change",
-            "change": "what was changed",
-            "reason": "specific reason for this change"
+            "location": "context of the change",
+            "description": "what was changed"
         }
     ]
 }
-
-Be very specific in change descriptions. Instead of "Improved clarity", say exactly what was unclear and how you fixed it.`
+`
                 },
                 {
                     role: "user",
@@ -130,4 +125,4 @@ const server = http.createServer(async (req, res) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-});}
+});
