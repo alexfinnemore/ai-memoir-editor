@@ -9,58 +9,22 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
-// Array of models to try, in order of preference
-const MODELS = [
-    'gpt-3.5-turbo',
-    'gpt-3.5-turbo-16k',
-    'gpt-4-turbo-preview',
-    'gpt-4'
-];
-
-async function findAvailableModel() {
-    for (const model of MODELS) {
-        try {
-            await openai.chat.completions.create({
-                model: model,
-                messages: [{ role: 'user', content: 'test' }],
-                max_tokens: 5
-            });
-            console.log(`Using model: ${model}`);
-            return model;
-        } catch (error) {
-            console.log(`Model ${model} not available:`, error.message);
-            continue;
-        }
-    }
-    throw new Error('No available models found');
-}
-
 async function analyzeText(text) {
     try {
         console.log('Analyzing text length:', text.length);
-        
-        // Find available model
-        const model = await findAvailableModel();
-        console.log('Selected model:', model);
 
         const response = await openai.chat.completions.create({
-            model: model,
+            model: 'gpt-3.5-turbo',
             messages: [
                 {
                     role: "system",
-                    content: `You are an expert memoir editor. Analyze the provided text and provide feedback in the following format:
+                    content: `You are an expert memoir editor. Your task is to improve the provided text by:
+                    1. Fixing any grammar and spelling issues
+                    2. Improving the writing style to be more engaging
+                    3. Tightening up any wordy sections
+                    4. Enhancing the narrative flow
 
-GRAMMAR AND SPELLING:
-[List any grammar or spelling issues]
-
-STYLE SUGGESTIONS:
-[Provide style improvement suggestions]
-
-ENGAGEMENT:
-[Assess how engaging the content is and suggest improvements]
-
-CONTENT STRUCTURE:
-[Suggest any parts that could be removed, expanded, or restructured]`
+                    Return only the edited text, with no explanations or summaries. Maintain the author's voice and key message while making the writing more polished and engaging.`
                 },
                 {
                     role: "user",
@@ -73,11 +37,11 @@ CONTENT STRUCTURE:
         console.log('OpenAI API Response received');
         return {
             success: true,
-            analysis: response.choices[0].message.content
+            editedText: response.choices[0].message.content,
+            originalText: text
         };
     } catch (error) {
         console.error('OpenAI API Error:', error.message);
-        console.error('Error details:', error);
         return {
             success: false,
             error: `Analysis failed: ${error.message}`
@@ -91,14 +55,12 @@ const server = http.createServer(async (req, res) => {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    // Handle OPTIONS requests for CORS
     if (req.method === 'OPTIONS') {
         res.writeHead(200);
         res.end();
         return;
     }
 
-    // Serve the main HTML file
     if (req.url === '/' && req.method === 'GET') {
         fs.readFile(path.join(__dirname, 'index.html'), (err, content) => {
             if (err) {
@@ -110,7 +72,6 @@ const server = http.createServer(async (req, res) => {
             }
         });
     }
-    // Handle manuscript analysis endpoint
     else if (req.url === '/analyze' && req.method === 'POST') {
         let body = '';
         req.on('data', chunk => {
@@ -122,10 +83,10 @@ const server = http.createServer(async (req, res) => {
                 const { text } = JSON.parse(body);
                 console.log('Text to analyze:', text.substring(0, 100) + '...');
                 
-                const analysis = await analyzeText(text);
+                const result = await analyzeText(text);
                 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify(analysis));
+                res.end(JSON.stringify(result));
             } catch (error) {
                 console.error('Server error:', error);
                 res.writeHead(500);
@@ -145,5 +106,4 @@ const server = http.createServer(async (req, res) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-    console.log('OpenAI API Key present:', !!process.env.OPENAI_API_KEY);
 });
