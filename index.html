@@ -6,34 +6,89 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 800px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
+            line-height: 1.6;
         }
         #manuscript-input {
             width: 100%;
             height: 300px;
             margin-bottom: 10px;
+            padding: 10px;
+            font-size: 16px;
+        }
+        #analyze-btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #analyze-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        #suggestions-output {
+            white-space: pre-wrap;
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-radius: 4px;
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
     <h1>AI Memoir Editor</h1>
-    <textarea id="manuscript-input" placeholder="Paste your manuscript here..."></textarea>
+    
+    <textarea id="manuscript-input" placeholder="Paste your manuscript text here..."></textarea>
+    
     <div>
         <button id="analyze-btn">Analyze Manuscript</button>
     </div>
+
+    <div id="status" style="display: none;"></div>
     <div id="suggestions-output"></div>
 
     <script>
-        document.getElementById('analyze-btn').addEventListener('click', async () => {
+        const statusDiv = document.getElementById('status');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const suggestionsOutput = document.getElementById('suggestions-output');
+
+        function showStatus(message, isError = false) {
+            statusDiv.textContent = message;
+            statusDiv.style.display = 'block';
+            statusDiv.className = isError ? 'error' : 'success';
+        }
+
+        analyzeBtn.addEventListener('click', async () => {
             const manuscriptText = document.getElementById('manuscript-input').value;
-            const suggestionsOutput = document.getElementById('suggestions-output');
 
-            // Placeholder for AI analysis
-            suggestionsOutput.innerHTML = 'Analyzing manuscript...';
+            if (!manuscriptText.trim()) {
+                showStatus('Please enter some text to analyze', true);
+                return;
+            }
 
-            // In future, this will call backend AI analysis
+            // Disable button and show processing status
+            analyzeBtn.disabled = true;
+            showStatus('Analyzing manuscript...');
+            suggestionsOutput.textContent = '';
+
             try {
                 const response = await fetch('/analyze', {
                     method: 'POST',
@@ -42,10 +97,24 @@
                     },
                     body: JSON.stringify({ text: manuscriptText })
                 });
-                const suggestions = await response.json();
-                suggestionsOutput.innerHTML = JSON.stringify(suggestions, null, 2);
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'Failed to analyze text');
+                }
+
+                if (result.success) {
+                    showStatus('Analysis complete', false);
+                    suggestionsOutput.textContent = result.analysis;
+                } else {
+                    throw new Error(result.error || 'Analysis failed');
+                }
             } catch (error) {
-                suggestionsOutput.innerHTML = 'Error analyzing manuscript';
+                showStatus(`Error: ${error.message}`, true);
+                console.error('Analysis error:', error);
+            } finally {
+                analyzeBtn.disabled = false;
             }
         });
     </script>
