@@ -13,18 +13,24 @@ async function analyzeText(text) {
     try {
         console.log('Analyzing text length:', text.length);
 
+        // First get the edited version and changes explanation
         const response = await openai.chat.completions.create({
             model: 'gpt-3.5-turbo',
             messages: [
                 {
                     role: "system",
-                    content: `You are an expert memoir editor. Your task is to improve the provided text by:
-                    1. Fixing any grammar and spelling issues
-                    2. Improving the writing style to be more engaging
-                    3. Tightening up any wordy sections
-                    4. Enhancing the narrative flow
+                    content: `You are an expert memoir editor. Your task is to improve the provided text and explain your changes. Respond in the following JSON format:
+{
+    "editedText": "[The improved text with special markers: {+added text+} and {-removed text-}]",
+    "changes": [
+        {
+            "type": "[grammar|style|clarity|flow]",
+            "description": "[Brief explanation of what was changed and why]"
+        }
+    ]
+}
 
-                    Return only the edited text, with no explanations or summaries. Maintain the author's voice and key message while making the writing more polished and engaging.`
+Make meaningful improvements while maintaining the author's voice. Mark all changes with {+ +} for additions and {- -} for removals.`
                 },
                 {
                     role: "user",
@@ -34,10 +40,13 @@ async function analyzeText(text) {
             temperature: 0.7,
         });
 
-        console.log('OpenAI API Response received');
+        // Parse the response as JSON
+        const result = JSON.parse(response.choices[0].message.content);
+
         return {
             success: true,
-            editedText: response.choices[0].message.content,
+            editedText: result.editedText,
+            changes: result.changes,
             originalText: text
         };
     } catch (error) {
