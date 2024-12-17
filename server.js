@@ -9,20 +9,24 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
+console.log('OpenAI API Key loaded:', process.env.OPENAI_API_KEY ? 'Yes' : 'No');
+
 async function analyzeText(text) {
     try {
+        console.log('Analyzing text length:', text.length);
+        
         const response = await openai.chat.completions.create({
-            model: "gpt-4-turbo-preview",
+            model: "gpt-4",  // Using standard GPT-4 model
             messages: [
                 {
                     role: "system",
-                    content: `You are an expert memoir editor. Analyze the provided text for:
-                    1. Grammar and spelling issues
-                    2. Style improvements
-                    3. Engagement level
-                    4. Suggestions for parts that could be removed or expanded
-                    
-                    Provide specific, actionable feedback that would improve the memoir.`
+                    content: `As an expert memoir editor, analyze the following text and provide feedback in this JSON format:
+                    {
+                        "grammar": [list of grammar suggestions],
+                        "style": [list of style improvements],
+                        "engagement": [engagement improvement suggestions],
+                        "structure": [structural suggestions]
+                    }`
                 },
                 {
                     role: "user",
@@ -32,17 +36,19 @@ async function analyzeText(text) {
             temperature: 0.7,
         });
 
-        // Parse and structure the response
+        console.log('OpenAI response received');
         const analysis = response.choices[0].message.content;
+        console.log('Analysis:', analysis);
+
         return {
             success: true,
             analysis: analysis
         };
     } catch (error) {
-        console.error('OpenAI API Error:', error);
+        console.error('Detailed OpenAI API Error:', error);
         return {
             success: false,
-            error: 'Failed to analyze text'
+            error: error.message || 'Failed to analyze text'
         };
     }
 }
@@ -80,14 +86,26 @@ const server = http.createServer(async (req, res) => {
         });
         req.on('end', async () => {
             try {
+                console.log('Received analysis request');
                 const { text } = JSON.parse(body);
+                console.log('Text received, length:', text.length);
+                
+                if (!text || text.trim().length === 0) {
+                    throw new Error('No text provided');
+                }
+
                 const analysis = await analyzeText(text);
+                console.log('Analysis completed:', analysis.success);
 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify(analysis));
             } catch (error) {
+                console.error('Server error:', error);
                 res.writeHead(500);
-                res.end(JSON.stringify({ error: 'Server error' }));
+                res.end(JSON.stringify({
+                    success: false,
+                    error: error.message || 'Server error'
+                }));
             }
         });
     }
