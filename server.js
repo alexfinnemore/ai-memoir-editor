@@ -3,11 +3,37 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const OpenAI = require('openai');
+const Diff = require('diff');
 
 // Initialize OpenAI
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
+
+function findChanges(oldText, newText) {
+    // Split into lines for detailed comparison
+    const changes = [];
+    const diff = Diff.diffWords(oldText, newText);
+
+    diff.forEach(part => {
+        if (part.added) {
+            changes.push({
+                type: 'addition',
+                text: part.value,
+                location: 'Added text'
+            });
+        }
+        if (part.removed) {
+            changes.push({
+                type: 'deletion',
+                text: part.value,
+                location: 'Removed text'
+            });
+        }
+    });
+
+    return changes;
+}
 
 async function analyzeText(text) {
     try {
@@ -51,11 +77,20 @@ List ALL changes made, no matter how small.`
         });
 
         const result = JSON.parse(response.choices[0].message.content);
+        
+        // Add our own diff analysis
+        const actualChanges = findChanges(text, result.editedText);
+
         return {
             success: true,
             editedText: result.editedText,
-            changes: result.changes,
-            originalText: text
+            aiReportedChanges: result.changes,
+            actualChanges: actualChanges,
+            originalText: text,
+            stats: {
+                aiReportedChangeCount: result.changes.length,
+                actualChangeCount: actualChanges.length
+            }
         };
     } catch (error) {
         console.error('OpenAI API Error:', error.message);
@@ -75,28 +110,6 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200);
         res.end();
         return;
-    }
-
-    // Serve static files from public directory
-    if (req.url.startsWith('/public/')) {
-        const filePath = path.join(__dirname, req.url);
-        try {
-            const content = await fs.promises.readFile(filePath);
-            const ext = path.extname(filePath);
-            const contentType = {
-                '.js': 'application/javascript',
-                '.aff': 'text/plain',
-                '.dic': 'text/plain'
-            }[ext] || 'text/plain';
-
-            res.writeHead(200, { 'Content-Type': contentType });
-            res.end(content);
-            return;
-        } catch (error) {
-            res.writeHead(404);
-            res.end('File not found');
-            return;
-        }
     }
 
     if (req.url === '/' && req.method === 'GET') {
