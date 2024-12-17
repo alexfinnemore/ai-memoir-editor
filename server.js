@@ -11,49 +11,37 @@ const openai = new OpenAI({
 
 async function analyzeText(text) {
     try {
-        console.log('Analyzing text length:', text.length);
-
         const response = await openai.chat.completions.create({
             model: 'gpt-3.5-turbo',
             messages: [
                 {
                     role: "system",
-                    content: `You are an expert memoir editor. Your task is to improve the text while clearly marking technical corrections.
+                    content: `You are an expert memoir editor. Edit the provided text following these STRICT rules:
 
-Editing Instructions:
-1. Improve style, emotional impact, and overall writing quality
-2. Fix all technical errors (spelling, grammar, punctuation)
-3. Maintain the exact same line breaks and paragraph structure
-4. For technical corrections ONLY (spelling/grammar/punctuation), mark them with:
-   - <ERR>incorrect text</ERR>
-   - <FIX>corrected text</FIX>
-5. Make other style improvements directly in the text WITHOUT marking them
+1. Preserve ALL line breaks exactly as in the original
+2. ONLY mark spelling, grammar, and punctuation errors using:
+   <ERR>error</ERR><FIX>correction</FIX>
+3. Make other improvements directly without marking them
+4. For EACH change provide detailed explanation
 
-For EACH change, provide detailed information in this format:
+Respouse must be valid JSON in this exact format:
 {
-    "editedText": "improved text with marked technical corrections",
+    "editedText": "text with preserved line breaks and marked errors",
     "changes": [
         {
             "type": "technical",
-            "originalText": "exact original text",
-            "newText": "exact new text",
-            "reason": "Detailed explanation of why this needed fixing and how it improves the text",
-            "rule": "The specific grammar/spelling/punctuation rule that applies"
+            "before": "exact error text",
+            "after": "exact correction",
+            "explanation": "specific rule or reason"
         },
         {
             "type": "style",
-            "originalText": "exact original phrase or sentence",
-            "newText": "exact new phrase or sentence",
-            "improvement": "Specific explanation of how this change enhances the writing",
-            "impact": "How this change affects the reader's experience"
+            "before": "original phrase",
+            "after": "improved phrase",
+            "explanation": "specific improvement made"
         }
     ]
-}
-
-Example of a good change description:
-Technical: "Original 'I seen him' was grammatically incorrect. Changed to 'I saw him' to use correct past tense form. Rule: 'See' is irregular - past tense is 'saw' not 'seen'."
-
-Style: "Original 'He walked into the room' was bland. Changed to 'He strode purposefully into the room' to better convey character's confidence and intention. Impact: Helps reader visualize the character's presence and personality."`
+}`
                 },
                 {
                     role: "user",
@@ -63,6 +51,7 @@ Style: "Original 'He walked into the room' was bland. Changed to 'He strode purp
             temperature: 0.7,
         });
 
+        console.log('Raw response:', response.choices[0].message.content);
         const result = JSON.parse(response.choices[0].message.content);
         return {
             success: true,
@@ -72,6 +61,7 @@ Style: "Original 'He walked into the room' was bland. Changed to 'He strode purp
         };
     } catch (error) {
         console.error('OpenAI API Error:', error.message);
+        console.error('Full error:', error);
         return {
             success: false,
             error: `Analysis failed: ${error.message}`
