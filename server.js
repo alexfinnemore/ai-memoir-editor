@@ -11,55 +11,51 @@ const openai = new OpenAI({
 });
 
 function findActualChanges(oldText, newText) {
-    const changes = [];
-    const diff = Diff.diffWords(oldText, newText);
+    try {
+        const changes = [];
+        const diff = Diff.diffWords(oldText, newText);
 
-    diff.forEach((part, index) => {
-        if (part.added) {
-            changes.push({
-                type: 'addition',
-                text: part.value,
-                context: `...${diff[index - 1]?.value.slice(-20) || ''} [ADDED TEXT] ${diff[index + 1]?.value.slice(0, 20) || ''}`
-            });
-        }
-        if (part.removed) {
-            changes.push({
-                type: 'deletion',
-                text: part.value,
-                context: `...${diff[index - 1]?.value.slice(-20) || ''} [REMOVED TEXT] ${diff[index + 1]?.value.slice(0, 20) || ''}`
-            });
-        }
-    });
+        diff.forEach((part, index) => {
+            if (part.added) {
+                changes.push({
+                    type: 'addition',
+                    text: part.value,
+                    context: `...${diff[index - 1]?.value.slice(-20) || ''} [ADDED TEXT] ${diff[index + 1]?.value.slice(0, 20) || ''}`
+                });
+            }
+            if (part.removed) {
+                changes.push({
+                    type: 'deletion',
+                    text: part.value,
+                    context: `...${diff[index - 1]?.value.slice(-20) || ''} [REMOVED TEXT] ${diff[index + 1]?.value.slice(0, 20) || ''}`
+                });
+            }
+        });
 
-    return changes;
+        return changes;
+    } catch (error) {
+        console.error('Diff error:', error);
+        return [];
+    }
 }
 
 async function analyzeText(text) {
     try {
+        // Get OpenAI's edits
         const response = await openai.chat.completions.create({
             model: 'gpt-3.5-turbo',
             messages: [
                 {
                     role: "system",
-                    content: `You are an expert memoir editor. Edit the provided text following these rules:
-
-1. Improve both technical correctness and style
-2. Preserve ALL line breaks and formatting exactly as in the original
-3. For EACH individual change, provide these details:
-   - The exact text before the change
-   - The exact text after the change
-   - Whether it's a technical fix or style improvement
-   - A clear explanation of why the change improves the text
-
-Respond in this format:
+                    content: `You are an expert memoir editor. Edit the provided text and list your changes in this exact JSON format:
 {
-    "editedText": "the improved text with preserved formatting",
+    "editedText": "your edited version of the text",
     "changes": [
         {
-            "type": "technical|style",
-            "before": "exact original text",
-            "after": "exact changed text",
-            "explanation": "specific explanation of what was changed and why"
+            "type": "technical",
+            "before": "original text",
+            "after": "changed text",
+            "explanation": "why this change was made"
         }
     ]
 }`
@@ -72,24 +68,46 @@ Respond in this format:
             temperature: 0.7
         });
 
-        const result = JSON.parse(response.choices[0].message.content);
+        // Parse the response, with error handling
+        let result;
+        try {
+            result = JSON.parse(response.choices[0].message.content);
+            // Ensure changes array exists
+            if (!Array.isArray(result.changes)) {
+                result.changes = [];
+            }
+        } catch (parseError) {
+            console.error('Parse error:', parseError);
+            result = { editedText: text, changes: [] };
+        }
+
+        // Get diff-based changes
         const actualChanges = findActualChanges(text, result.editedText);
+
+        console.log('AI Changes:', result.changes);
+        console.log('Actual Changes:', actualChanges);
 
         return {
             success: true,
-            editedText: result.editedText,
-            aiReportedChanges: result.changes,
+            editedText: result.editedText || text,
+            aiReportedChanges: result.changes || [],
             actualChanges: actualChanges,
             stats: {
-                aiReportedChangeCount: result.changes.length,
+                aiReportedChangeCount: (result.changes || []).length,
                 actualChangeCount: actualChanges.length
             }
         };
     } catch (error) {
-        console.error('OpenAI API Error:', error.message);
+        console.error('OpenAI API Error:', error);
         return {
             success: false,
-            error: `Analysis failed: ${error.message}`
+            error: `Analysis failed: ${error.message}`,
+            aiReportedChanges: [],
+            actualChanges: [],
+            stats: {
+                aiReportedChangeCount: 0,
+                actualChangeCount: 0
+            }
         };
     }
 }
@@ -132,7 +150,13 @@ const server = http.createServer(async (req, res) => {
                 res.writeHead(500);
                 res.end(JSON.stringify({ 
                     success: false, 
-                    error: 'Server error: ' + error.message 
+                    error: 'Server error: ' + error.message,
+                    aiReportedChanges: [],
+                    actualChanges: [],
+                    stats: {
+                        aiReportedChangeCount: 0,
+                        actualChangeCount: 0
+                    }
                 }));
             }
         });
