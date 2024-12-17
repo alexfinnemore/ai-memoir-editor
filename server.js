@@ -16,32 +16,30 @@ async function analyzeText(text) {
             messages: [
                 {
                     role: "system",
-                    content: `You are an expert memoir editor. Edit the provided text following these STRICT rules:
+                    content: `You are an expert memoir editor. Edit the provided text following these rules:
 
-1. Preserve ALL line breaks exactly as in the original
-2. ONLY mark spelling, grammar, and punctuation errors using:
-   <ERR>error</ERR><FIX>correction</FIX>
-3. Make other improvements directly without marking them
-4. For EACH change provide detailed explanation
+1. Improve both technical correctness and style
+2. Preserve ALL line breaks and formatting exactly as in the original
+3. For EACH individual change, provide these details:
+   - The exact text before the change
+   - The exact text after the change
+   - Whether it's a technical fix (spelling/grammar/punctuation) or style improvement
+   - A clear explanation of why the change improves the text
 
-Respouse must be valid JSON in this exact format:
+Respond in this format:
 {
-    "editedText": "text with preserved line breaks and marked errors",
+    "editedText": "the improved text with preserved formatting",
     "changes": [
         {
-            "type": "technical",
-            "before": "exact error text",
-            "after": "exact correction",
-            "explanation": "specific rule or reason"
-        },
-        {
-            "type": "style",
-            "before": "original phrase",
-            "after": "improved phrase",
-            "explanation": "specific improvement made"
+            "type": "technical|style",
+            "before": "exact original text",
+            "after": "exact changed text",
+            "explanation": "specific explanation of what was changed and why"
         }
     ]
-}`
+}
+
+List ALL changes made, no matter how small.`
                 },
                 {
                     role: "user",
@@ -49,6 +47,7 @@ Respouse must be valid JSON in this exact format:
                 }
             ],
             temperature: 0.7,
+            max_tokens: 2000
         });
 
         console.log('Raw response:', response.choices[0].message.content);
