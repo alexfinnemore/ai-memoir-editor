@@ -10,24 +10,23 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
-function findChanges(oldText, newText) {
-    // Split into lines for detailed comparison
+function findActualChanges(oldText, newText) {
     const changes = [];
     const diff = Diff.diffWords(oldText, newText);
 
-    diff.forEach(part => {
+    diff.forEach((part, index) => {
         if (part.added) {
             changes.push({
                 type: 'addition',
                 text: part.value,
-                location: 'Added text'
+                context: `...${diff[index - 1]?.value.slice(-20) || ''} [ADDED TEXT] ${diff[index + 1]?.value.slice(0, 20) || ''}`
             });
         }
         if (part.removed) {
             changes.push({
                 type: 'deletion',
                 text: part.value,
-                location: 'Removed text'
+                context: `...${diff[index - 1]?.value.slice(-20) || ''} [REMOVED TEXT] ${diff[index + 1]?.value.slice(0, 20) || ''}`
             });
         }
     });
@@ -49,7 +48,7 @@ async function analyzeText(text) {
 3. For EACH individual change, provide these details:
    - The exact text before the change
    - The exact text after the change
-   - Whether it's a technical fix (spelling/grammar/punctuation) or style improvement
+   - Whether it's a technical fix or style improvement
    - A clear explanation of why the change improves the text
 
 Respond in this format:
@@ -63,30 +62,24 @@ Respond in this format:
             "explanation": "specific explanation of what was changed and why"
         }
     ]
-}
-
-List ALL changes made, no matter how small.`
+}`
                 },
                 {
                     role: "user",
                     content: text
                 }
             ],
-            temperature: 0.7,
-            max_tokens: 2000
+            temperature: 0.7
         });
 
         const result = JSON.parse(response.choices[0].message.content);
-        
-        // Add our own diff analysis
-        const actualChanges = findChanges(text, result.editedText);
+        const actualChanges = findActualChanges(text, result.editedText);
 
         return {
             success: true,
             editedText: result.editedText,
             aiReportedChanges: result.changes,
             actualChanges: actualChanges,
-            originalText: text,
             stats: {
                 aiReportedChangeCount: result.changes.length,
                 actualChangeCount: actualChanges.length
