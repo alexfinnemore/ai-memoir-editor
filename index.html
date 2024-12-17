@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>AI Memoir Editor</title>
-    <script src="/public/js/typo.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -44,6 +43,9 @@
             white-space: pre-wrap;
             overflow-y: auto;
         }
+        #edited-display {
+            background-color: #fff;
+        }
         #analyze-btn {
             padding: 10px 20px;
             font-size: 16px;
@@ -53,10 +55,6 @@
             border-radius: 4px;
             cursor: pointer;
             margin-top: 10px;
-        }
-        .misspelled {
-            text-decoration: underline wavy red;
-            text-decoration-skip-ink: none;
         }
         #changes-list {
             margin-top: 20px;
@@ -93,14 +91,26 @@
                 <h2>Original Text</h2>
                 <span id="original-word-count" class="word-count">0 words</span>
             </div>
-            <textarea id="manuscript-input" class="text-area" placeholder="Paste your manuscript text here..."></textarea>
+            <textarea 
+                id="manuscript-input" 
+                class="text-area" 
+                placeholder="Paste your manuscript text here..."
+                spellcheck="true"
+                lang="en"
+            ></textarea>
         </div>
         <div class="editor-panel">
             <div class="panel-header">
                 <h2>Edited Text</h2>
                 <span id="edited-word-count" class="word-count">0 words</span>
             </div>
-            <div id="edited-display" class="text-area"></div>
+            <div 
+                id="edited-display" 
+                class="text-area" 
+                contenteditable="true"
+                spellcheck="true"
+                lang="en"
+            ></div>
         </div>
     </div>
     
@@ -114,22 +124,8 @@
     </div>
 
     <script>
-        let dictionary = null;
-
         function countWords(text) {
             return text.trim().split(/\s+/).filter(word => word.length > 0).length;
-        }
-
-        function spellCheck(text) {
-            if (!dictionary) return text;
-            
-            const words = text.split(/([\s\n]+)/); // Split keeping separators
-            return words.map(word => {
-                if (word.trim() && /^[a-zA-Z]+$/.test(word) && !dictionary.check(word)) {
-                    return `<span class="misspelled">${word}</span>`;
-                }
-                return word;
-            }).join('');
         }
 
         function updateWordCount() {
@@ -150,14 +146,7 @@
             `).join('');
         }
 
-        // Initialize dictionary
-        dictionary = new Typo("en_US");
-
-        document.getElementById('manuscript-input').addEventListener('input', (e) => {
-            updateWordCount();
-            const text = e.target.value;
-            document.getElementById('manuscript-input').innerHTML = spellCheck(text);
-        });
+        document.getElementById('manuscript-input').addEventListener('input', updateWordCount);
 
         document.getElementById('analyze-btn').addEventListener('click', async () => {
             const manuscriptText = document.getElementById('manuscript-input').value;
@@ -170,7 +159,7 @@
             }
 
             analyzeBtn.disabled = true;
-            editedDisplay.innerHTML = 'Analyzing...';
+            editedDisplay.textContent = 'Analyzing...';
 
             try {
                 const response = await fetch('/analyze', {
@@ -186,7 +175,7 @@
                 }
 
                 if (result.success) {
-                    editedDisplay.innerHTML = spellCheck(result.editedText);
+                    editedDisplay.textContent = result.editedText;
                     displayChanges(result.changes);
                     
                     const editedCount = countWords(result.editedText);
