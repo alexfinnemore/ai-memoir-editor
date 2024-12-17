@@ -20,13 +20,12 @@ async function analyzeText(text) {
                     role: "system",
                     content: `You are an expert memoir editor. Edit the provided text with the following requirements:
 
-1. Preserve ALL original formatting, including paragraphs, line breaks, and spacing
+1. Preserve ALL original formatting, including paragraphs and line breaks
 2. Mark changes using special markers:
    - For DELETED text: <DEL>removed text</DEL>
    - For ADDED text: <ADD>new text</ADD>
-3. Make small, precise edits at the word or phrase level
-4. Never combine or split paragraphs
-5. Keep the original text structure intact
+3. Make small, precise edits
+4. Keep the original text structure intact
 
 Respond in JSON format:
 {
@@ -34,12 +33,11 @@ Respond in JSON format:
     "changes": [
         {
             "type": "grammar|style|clarity|flow",
-            "location": "context of the change",
+            "location": "context where change was made",
             "description": "what was changed"
         }
     ]
-}
-`
+}"`
                 },
                 {
                     role: "user",
@@ -49,9 +47,7 @@ Respond in JSON format:
             temperature: 0.7,
         });
 
-        // Parse the response as JSON
         const result = JSON.parse(response.choices[0].message.content);
-
         return {
             success: true,
             editedText: result.editedText,
@@ -60,7 +56,6 @@ Respond in JSON format:
         };
     } catch (error) {
         console.error('OpenAI API Error:', error.message);
-        console.error('Full error:', error);
         return {
             success: false,
             error: `Analysis failed: ${error.message}`
@@ -69,7 +64,6 @@ Respond in JSON format:
 }
 
 const server = http.createServer(async (req, res) => {
-    // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -98,12 +92,8 @@ const server = http.createServer(async (req, res) => {
         });
         req.on('end', async () => {
             try {
-                console.log('Received analysis request');
                 const { text } = JSON.parse(body);
-                console.log('Text to analyze:', text.substring(0, 100) + '...');
-                
                 const result = await analyzeText(text);
-                
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify(result));
             } catch (error) {
