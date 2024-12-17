@@ -50,7 +50,6 @@ List ALL changes made, no matter how small.`
             max_tokens: 2000
         });
 
-        console.log('Raw response:', response.choices[0].message.content);
         const result = JSON.parse(response.choices[0].message.content);
         return {
             success: true,
@@ -60,7 +59,6 @@ List ALL changes made, no matter how small.`
         };
     } catch (error) {
         console.error('OpenAI API Error:', error.message);
-        console.error('Full error:', error);
         return {
             success: false,
             error: `Analysis failed: ${error.message}`
@@ -77,6 +75,28 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200);
         res.end();
         return;
+    }
+
+    // Serve static files from public directory
+    if (req.url.startsWith('/public/')) {
+        const filePath = path.join(__dirname, req.url);
+        try {
+            const content = await fs.promises.readFile(filePath);
+            const ext = path.extname(filePath);
+            const contentType = {
+                '.js': 'application/javascript',
+                '.aff': 'text/plain',
+                '.dic': 'text/plain'
+            }[ext] || 'text/plain';
+
+            res.writeHead(200, { 'Content-Type': contentType });
+            res.end(content);
+            return;
+        } catch (error) {
+            res.writeHead(404);
+            res.end('File not found');
+            return;
+        }
     }
 
     if (req.url === '/' && req.method === 'GET') {
