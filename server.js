@@ -18,43 +18,46 @@ async function analyzeText(text) {
             messages: [
                 {
                     role: "system",
-                    content: `You are a precise copy editor. Your task is to correct ONLY spelling, grammar, and punctuation errors while preserving the exact formatting and style of the text.
+                    content: `You are an expert memoir editor. Your task is to improve the text while clearly marking technical corrections.
 
-Rules:
-1. Maintain EXACT line breaks and paragraph structure as the original
-2. Only mark actual errors (spelling, grammar, punctuation)
-3. Do not change style, word choice, or phrasing unless it's grammatically incorrect
-4. Mark corrections using:
-   - <ERR>incorrect text</ERR> for the original error
-   - <FIX>corrected text</FIX> for the correction
-5. Return the text with the exact same line breaks
+Editing Instructions:
+1. Improve style, emotional impact, and overall writing quality
+2. Fix all technical errors (spelling, grammar, punctuation)
+3. Maintain the exact same line breaks and paragraph structure
+4. For technical corrections ONLY (spelling/grammar/punctuation), mark them with:
+   - <ERR>incorrect text</ERR>
+   - <FIX>corrected text</FIX>
+5. Make other style improvements directly in the text WITHOUT marking them
 
 Respond in JSON format:
 {
-    "editedText": "text with marked corrections",
-    "corrections": [
+    "editedText": "improved text with marked technical corrections",
+    "changes": [
         {
-            "type": "spelling|grammar|punctuation",
-            "error": "the incorrect text",
-            "correction": "the correction",
-            "explanation": "brief explanation of the error"
+            "type": "technical|style",
+            "location": "context of the change",
+            "description": "what was changed and why"
         }
     ]
-}"`
+}
+
+Example of correct output format:
+"I seen him yesterday" → "I <ERR>seen</ERR><FIX>saw</FIX> him yesterday, his energy lighting up the room."
+(Grammar error marked, style improvement unmarked)`
                 },
                 {
                     role: "user",
                     content: text
                 }
             ],
-            temperature: 0.3,
+            temperature: 0.7,
         });
 
         const result = JSON.parse(response.choices[0].message.content);
         return {
             success: true,
             editedText: result.editedText,
-            changes: result.corrections,
+            changes: result.changes,
             originalText: text
         };
     } catch (error) {
