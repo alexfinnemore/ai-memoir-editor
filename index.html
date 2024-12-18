@@ -5,129 +5,72 @@
     <title>AI Memoir Editor</title>
     <style>
         /* Previous styles remain the same */
-        .editor-wrapper {
-            position: relative;
-            display: flex;
-            height: 500px;
-        }
-
-        .line-numbers {
-            width: 50px;
-            padding: 15px 5px;
-            background-color: #f5f5f5;
-            border: 1px solid #ddd;
-            border-right: none;
-            border-radius: 4px 0 0 4px;
-            font-family: monospace;
-            font-size: 14px;
-            line-height: 1.6;
-            text-align: right;
-            color: #666;
-            user-select: none;
-            overflow: hidden;
-        }
-
-        .text-area {
-            flex: 1;
-            height: 100%;
-            padding: 15px;
-            font-size: 14px;
-            line-height: 1.6;
-            border: 1px solid #ddd;
-            border-radius: 0 4px 4px 0;
-            font-family: monospace;
-            white-space: pre-wrap;
-            resize: vertical;
-            background-color: white;
-            box-sizing: border-box;
-            overflow-y: scroll;
-        }
-
-        .change-line-ref {
-            font-family: monospace;
-            color: #666;
-            background-color: #f0f0f0;
+        .highlight-grammar {
+            background-color: #90EE90;
             padding: 2px 4px;
-            border-radius: 3px;
-            font-size: 0.9em;
+            border-radius: 2px;
+        }
+        .highlight-spelling {
+            background-color: #FFB6B6;
+            padding: 2px 4px;
+            border-radius: 2px;
+        }
+        .highlight-other {
+            background-color: #FFE5B4;
+            padding: 2px 4px;
+            border-radius: 2px;
         }
 
         /* Rest of your existing styles */
     </style>
 </head>
 <body>
-    <h1>AI Memoir Editor</h1>
-    
-    <div class="editor-container">
-        <div class="editor-panel">
-            <div class="panel-header">
-                <h2>Original Text</h2>
-                <span id="original-word-count" class="word-count">0 words</span>
-            </div>
-            <div class="editor-wrapper">
-                <div id="original-line-numbers" class="line-numbers"></div>
-                <textarea 
-                    id="manuscript-input" 
-                    class="text-area" 
-                    placeholder="Paste your manuscript text here..."
-                    spellcheck="true"
-                ></textarea>
-            </div>
-        </div>
-        <div class="editor-panel">
-            <div class="panel-header">
-                <h2>Edited Text</h2>
-                <span id="edited-word-count" class="word-count">0 words</span>
-            </div>
-            <div class="editor-wrapper">
-                <div id="edited-line-numbers" class="line-numbers"></div>
-                <pre id="edited-display" class="text-area"></pre>
-            </div>
-        </div>
-    </div>
-    
-    <button id="analyze-btn">Edit Text</button>
-
-    <div class="changes-list">
-        <h2>Changes Made</h2>
-        <div id="ai-changes-section">
-            <h3>AI-Reported Changes</h3>
-            <div id="ai-changes"></div>
-        </div>
-        <div id="diff-changes-section">
-            <h3>Detected Changes</h3>
-            <div id="diff-changes"></div>
-        </div>
-    </div>
+    <!-- Previous HTML remains the same -->
 
     <script>
-        function updateLineNumbers(text, lineNumbersElement) {
-            const lineCount = text.split('\n').length;
-            lineNumbersElement.innerHTML = Array.from(
-                { length: lineCount }, 
-                (_, i) => `${i + 1}<br>`
-            ).join('');
+        // Previous functions remain the same
+
+        function findDifference(str1, str2) {
+            let i = 0;
+            let j = str1.length - 1;
+            let k = str2.length - 1;
+            let start = 0;
+            let end1 = str1.length;
+            let end2 = str2.length;
+
+            // Find first difference from start
+            while (i < str1.length && i < str2.length && str1[i] === str2[i]) {
+                i++;
+            }
+            start = i;
+
+            // Find first difference from end
+            while (j >= i && k >= i && str1[j] === str2[k]) {
+                j--;
+                k--;
+            }
+            end1 = j + 1;
+            end2 = k + 1;
+
+            return {
+                before: {
+                    prefix: str1.slice(0, start),
+                    changed: str1.slice(start, end1),
+                    suffix: str1.slice(end1)
+                },
+                after: {
+                    prefix: str2.slice(0, start),
+                    changed: str2.slice(start, end2),
+                    suffix: str2.slice(end2)
+                }
+            };
         }
 
-        function findLineNumber(text, position) {
-            return text.slice(0, position).split('\n').length;
-        }
-
-        function countWords(text) {
-            return text.trim().split(/\s+/).filter(word => word.length > 0).length;
-        }
-
-        function updateWordCount() {
-            const text = document.getElementById('manuscript-input').value;
-            const count = countWords(text);
-            document.getElementById('original-word-count').textContent = `${count} words`;
-            updateLineNumbers(text, document.getElementById('original-line-numbers'));
-        }
-
-        function getLineNumberForText(fullText, searchText) {
-            const index = fullText.indexOf(searchText);
-            if (index === -1) return null;
-            return findLineNumber(fullText, index);
+        function getHighlightClass(type) {
+            type = type.toLowerCase();
+            if (type.includes('grammar')) return 'highlight-grammar';
+            if (type.includes('spelling')) return 'highlight-spelling';
+            return 'highlight-other';
         }
 
         function displayChanges(result) {
@@ -137,20 +80,25 @@
 
             const aiChangesHtml = result.aiChanges.map(change => {
                 const beforeLineNum = getLineNumberForText(originalText, change.before);
-                const afterLineNum = getLineNumberForText(editedText, change.after);
                 const lineRef = beforeLineNum ? `<span class="change-line-ref">Line ${beforeLineNum}</span>` : '';
+                
+                const diff = findDifference(change.before, change.after);
+                const highlightClass = getHighlightClass(change.type);
+
+                const beforeHtml = `${diff.before.prefix}<span class="${highlightClass}">${diff.before.changed}</span>${diff.before.suffix}`;
+                const afterHtml = `${diff.after.prefix}<span class="${highlightClass}">${diff.after.changed}</span>${diff.after.suffix}`;
 
                 return `
                     <div class="change-item">
                         <div class="change-type">${change.type} ${lineRef}</div>
-                        <div class="change-text">Before: ${change.before}</div>
-                        <div class="change-text">After: ${change.after}</div>
+                        <div class="change-text">Before: ${beforeHtml}</div>
+                        <div class="change-text">After: ${afterHtml}</div>
                     </div>
                 `;
             }).join('');
             document.getElementById('ai-changes').innerHTML = aiChangesHtml;
 
-            // Display diff changes
+            // Display diff changes - could also add highlighting here if needed
             const diffChangesHtml = result.diffChanges.map(change => `
                 <div class="change-item">
                     <div class="change-type">${change.type}</div>
@@ -164,61 +112,7 @@
             updateLineNumbers(editedText, document.getElementById('edited-line-numbers'));
         }
 
-        document.getElementById('manuscript-input').addEventListener('input', updateWordCount);
-        document.getElementById('manuscript-input').addEventListener('scroll', function(e) {
-            document.getElementById('original-line-numbers').scrollTop = e.target.scrollTop;
-        });
-
-        document.getElementById('edited-display').addEventListener('scroll', function(e) {
-            document.getElementById('edited-line-numbers').scrollTop = e.target.scrollTop;
-        });
-
-        document.getElementById('analyze-btn').addEventListener('click', async () => {
-            const manuscriptText = document.getElementById('manuscript-input').value;
-            const analyzeBtn = document.getElementById('analyze-btn');
-            const editedDisplay = document.getElementById('edited-display');
-
-            if (!manuscriptText.trim()) {
-                alert('Please enter some text to edit');
-                return;
-            }
-
-            analyzeBtn.disabled = true;
-            editedDisplay.textContent = 'Analyzing...';
-
-            try {
-                const response = await fetch('/analyze', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: manuscriptText })
-                });
-
-                const result = await response.json();
-                console.log('Server response:', result);
-
-                if (!response.ok) {
-                    throw new Error(result.error || 'Failed to edit text');
-                }
-
-                if (result.success) {
-                    editedDisplay.textContent = result.editedText;
-                    displayChanges(result);
-                    
-                    const editedCount = countWords(result.editedText);
-                    document.getElementById('edited-word-count').textContent = `${editedCount} words`;
-                } else {
-                    throw new Error(result.error || 'Editing failed');
-                }
-            } catch (error) {
-                alert(`Error: ${error.message}`);
-                console.error('Analysis error:', error);
-            } finally {
-                analyzeBtn.disabled = false;
-            }
-        });
-
-        // Initialize
-        updateWordCount();
+        // Rest of your script remains the same
     </script>
 </body>
 </html>
