@@ -32,6 +32,7 @@
             line-height: 1.5;
             border: 1px solid #ccc;
             border-radius: 4px;
+            font-size: 14px;
         }
 
         #edited-display {
@@ -43,12 +44,47 @@
             margin: 10px 0;
             padding: 10px;
             border-left: 4px solid #4CAF50;
-            background: #f5f5f5;
+            background: #f8f9fa;
         }
 
-        .highlight-grammar { background-color: #90EE90; }
-        .highlight-spelling { background-color: #FFB6B6; }
-        .highlight-other { background-color: #FFE5B4; }
+        .change-type {
+            font-weight: bold;
+            color: #2196F3;
+            margin-bottom: 5px;
+        }
+
+        .changes-section {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .highlight-grammar { background-color: #90EE90; padding: 2px; }
+        .highlight-spelling { background-color: #FFB6B6; padding: 2px; }
+        .highlight-other { background-color: #FFE5B4; padding: 2px; }
+        
+        .change-text {
+            font-family: monospace;
+            padding: 5px;
+            margin: 5px 0;
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 3px;
+        }
+
+        #analyze-btn {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #analyze-btn:disabled {
+            background-color: #ccc;
+        }
     </style>
 </head>
 <body>
@@ -68,9 +104,14 @@
     
     <button id="analyze-btn">Edit Text</button>
 
-    <div id="changes-list">
+    <div class="changes-section">
         <h2>Changes Made</h2>
+
+        <h3>AI-Reported Changes</h3>
         <div id="ai-changes"></div>
+
+        <h3>Technical Changes</h3>
+        <div id="diff-changes"></div>
     </div>
 
     <script>
@@ -78,15 +119,66 @@
             return text.trim().split(/\s+/).filter(word => word.length > 0).length;
         }
 
+        function getHighlightClass(type) {
+            type = type.toLowerCase();
+            if (type.includes('grammar')) return 'highlight-grammar';
+            if (type.includes('spelling')) return 'highlight-spelling';
+            return 'highlight-other';
+        }
+
+        function highlightDifferences(before, after, type) {
+            let i = 0;
+            while (i < before.length && i < after.length && before[i] === after[i]) i++;
+            
+            let j = before.length - 1;
+            let k = after.length - 1;
+            while (j > i && k > i && before[j] === after[k]) {
+                j--;
+                k--;
+            }
+
+            const highlightClass = getHighlightClass(type);
+            const beforeHighlight = before.slice(0, i) + 
+                `<span class="${highlightClass}">${before.slice(i, j+1)}</span>` + 
+                before.slice(j+1);
+            const afterHighlight = after.slice(0, i) + 
+                `<span class="${highlightClass}">${after.slice(i, k+1)}</span>` + 
+                after.slice(k+1);
+
+            return { beforeHighlight, afterHighlight };
+        }
+
         function displayChanges(result) {
-            const aiChangesHtml = result.aiChanges.map(change => `
-                <div class="change-item">
-                    <div class="change-type">${change.type}</div>
-                    <div class="change-text">Before: ${change.before}</div>
-                    <div class="change-text">After: ${change.after}</div>
-                </div>
-            `).join('');
+            // AI-reported changes
+            const aiChangesHtml = result.aiChanges.map(change => {
+                const { beforeHighlight, afterHighlight } = highlightDifferences(
+                    change.before,
+                    change.after,
+                    change.type
+                );
+
+                return `
+                    <div class="change-item">
+                        <div class="change-type">${change.type}</div>
+                        <div class="change-text">Before: ${beforeHighlight}</div>
+                        <div class="change-text">After: ${afterHighlight}</div>
+                    </div>
+                `;
+            }).join('');
             document.getElementById('ai-changes').innerHTML = aiChangesHtml;
+
+            // Diff changes
+            const diffChangesHtml = result.diffChanges.map(change => {
+                const highlightClass = change.type.toLowerCase() === 'deletion' ? 'highlight-other' : 'highlight-grammar';
+                return `
+                    <div class="change-item">
+                        <div class="change-type">${change.type}</div>
+                        <div class="change-text"><span class="${highlightClass}">${change.text}</span></div>
+                        <div class="change-text small">Context: ${change.context}</div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('diff-changes').innerHTML = diffChangesHtml;
         }
 
         document.getElementById('analyze-btn').addEventListener('click', async () => {
@@ -110,6 +202,7 @@
                 });
 
                 const result = await response.json();
+                console.log('Server response:', result);
 
                 if (!response.ok) {
                     throw new Error(result.error || 'Failed to edit text');
