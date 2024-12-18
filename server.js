@@ -18,16 +18,16 @@ function findActualChanges(oldText, newText) {
         diff.forEach((part, index) => {
             if (part.added) {
                 changes.push({
-                    type: 'addition',
+                    type: 'Addition',
                     text: part.value,
-                    context: `...${diff[index - 1]?.value.slice(-20) || ''} [ADDED TEXT] ${diff[index + 1]?.value.slice(0, 20) || ''}`
+                    context: `...${diff[index - 1]?.value.slice(-20) || ''} → ${part.value} → ${diff[index + 1]?.value.slice(0, 20) || ''}`
                 });
             }
             if (part.removed) {
                 changes.push({
-                    type: 'deletion',
+                    type: 'Deletion',
                     text: part.value,
-                    context: `...${diff[index - 1]?.value.slice(-20) || ''} [REMOVED TEXT] ${diff[index + 1]?.value.slice(0, 20) || ''}`
+                    context: `...${diff[index - 1]?.value.slice(-20) || ''} → ${part.value} → ${diff[index + 1]?.value.slice(0, 20) || ''}`
                 });
             }
         });
@@ -41,24 +41,30 @@ function findActualChanges(oldText, newText) {
 
 async function analyzeText(text) {
     try {
-        // Get OpenAI's edits
         const response = await openai.chat.completions.create({
             model: 'gpt-3.5-turbo',
             messages: [
                 {
                     role: "system",
-                    content: `You are an expert memoir editor. Edit the provided text and list your changes in this exact JSON format:
+                    content: `You are an expert memoir editor. Analyze and edit the provided text. Return your response in this exact JSON format:
 {
-    "editedText": "your edited version of the text",
+    "editedText": "the complete edited text",
     "changes": [
         {
-            "type": "technical",
-            "before": "original text",
-            "after": "changed text",
-            "explanation": "why this change was made"
+            "type": "Grammar",
+            "description": "describe what was changed and why",
+            "before": "the exact original text",
+            "after": "the exact edited text"
         }
     ]
-}`
+}
+
+Important rules:
+1. Preserve ALL line breaks exactly
+2. List EVERY change you make
+3. Do NOT summarize or explain outside the JSON
+4. Make changes for grammar, style, clarity and emotional impact
+5. Keep all original content and meaning intact`
                 },
                 {
                     role: "user",
@@ -68,33 +74,22 @@ async function analyzeText(text) {
             temperature: 0.7
         });
 
-        // Parse the response, with error handling
-        let result;
-        try {
-            result = JSON.parse(response.choices[0].message.content);
-            // Ensure changes array exists
-            if (!Array.isArray(result.changes)) {
-                result.changes = [];
-            }
-        } catch (parseError) {
-            console.error('Parse error:', parseError);
-            result = { editedText: text, changes: [] };
-        }
+        console.log('Raw GPT Response:', response.choices[0].message.content);
 
-        // Get diff-based changes
+        const result = JSON.parse(response.choices[0].message.content);
         const actualChanges = findActualChanges(text, result.editedText);
 
-        console.log('AI Changes:', result.changes);
-        console.log('Actual Changes:', actualChanges);
+        console.log('Parsed changes:', result.changes);
+        console.log('Actual changes:', actualChanges);
 
         return {
             success: true,
-            editedText: result.editedText || text,
-            aiReportedChanges: result.changes || [],
-            actualChanges: actualChanges,
+            editedText: result.editedText,
+            aiChanges: result.changes || [],
+            diffChanges: actualChanges,
             stats: {
-                aiReportedChangeCount: (result.changes || []).length,
-                actualChangeCount: actualChanges.length
+                aiChangeCount: (result.changes || []).length,
+                diffChangeCount: actualChanges.length
             }
         };
     } catch (error) {
@@ -102,12 +97,9 @@ async function analyzeText(text) {
         return {
             success: false,
             error: `Analysis failed: ${error.message}`,
-            aiReportedChanges: [],
-            actualChanges: [],
-            stats: {
-                aiReportedChangeCount: 0,
-                actualChangeCount: 0
-            }
+            aiChanges: [],
+            diffChanges: [],
+            stats: { aiChangeCount: 0, diffChangeCount: 0 }
         };
     }
 }
@@ -143,6 +135,7 @@ const server = http.createServer(async (req, res) => {
             try {
                 const { text } = JSON.parse(body);
                 const result = await analyzeText(text);
+                console.log('Final result:', result);
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify(result));
             } catch (error) {
@@ -151,12 +144,9 @@ const server = http.createServer(async (req, res) => {
                 res.end(JSON.stringify({ 
                     success: false, 
                     error: 'Server error: ' + error.message,
-                    aiReportedChanges: [],
-                    actualChanges: [],
-                    stats: {
-                        aiReportedChangeCount: 0,
-                        actualChangeCount: 0
-                    }
+                    aiChanges: [],
+                    diffChanges: [],
+                    stats: { aiChangeCount: 0, diffChangeCount: 0 }
                 }));
             }
         });
