@@ -4,59 +4,190 @@
     <meta charset="UTF-8">
     <title>AI Memoir Editor</title>
     <style>
-        /* Previous styles remain the same */
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .editor-container {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .editor-panel {
+            flex: 1;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 15px;
+        }
+
+        .text-area {
+            width: 100%;
+            height: 500px;
+            padding: 10px;
+            font-family: monospace;
+            line-height: 1.5;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        #edited-display {
+            white-space: pre-wrap;
+            overflow-y: auto;
+            background: white;
+        }
+
+        .change-item {
+            margin: 10px 0;
+            padding: 10px;
+            border-left: 4px solid #4CAF50;
+            background: #f5f5f5;
+        }
+
+        .change-type {
+            font-weight: bold;
+            color: #2196F3;
+            margin-bottom: 5px;
+        }
+
         .highlight-grammar { 
             background-color: #90EE90; 
             padding: 2px;
-            border-radius: 2px;
         }
         .highlight-spelling { 
             background-color: #FFB6B6; 
             padding: 2px;
-            border-radius: 2px;
         }
         .highlight-other { 
             background-color: #FFE5B4; 
             padding: 2px;
-            border-radius: 2px;
+        }
+        
+        .change-text {
+            font-family: monospace;
+            padding: 5px;
+            margin: 5px 0;
+            background: white;
+            border: 1px solid #eee;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background-color: #ccc;
         }
     </style>
 </head>
 <body>
-    <!-- Previous HTML remains the same -->
+    <h1>AI Memoir Editor</h1>
+    
+    <div class="editor-container">
+        <div class="editor-panel">
+            <h2>Original Text</h2>
+            <textarea id="manuscript-input" class="text-area" spellcheck="true"></textarea>
+        </div>
+        
+        <div class="editor-panel">
+            <h2>Edited Text</h2>
+            <div id="edited-display" class="text-area"></div>
+        </div>
+    </div>
+    
+    <button id="analyze-btn">Edit Text</button>
+
+    <div id="changes-list">
+        <h2>Changes Made</h2>
+        <h3>AI-Reported Changes</h3>
+        <div id="ai-changes"></div>
+    </div>
 
     <script>
-        function applyHighlightsToEditedText(text, changes) {
-            let highlightedText = text;
-            const sortedChanges = changes.slice().sort((a, b) => {
-                const indexA = text.indexOf(a.after);
-                const indexB = text.indexOf(b.after);
-                return indexB - indexA;  // Process from end to start
-            });
+        function countWords(text) {
+            return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+        }
 
-            for (const change of sortedChanges) {
-                const highlightClass = getHighlightClass(change.type);
-                const highlightedChange = `<span class="${highlightClass}">${change.after}</span>`;
-                const index = highlightedText.indexOf(change.after);
-                if (index !== -1) {
-                    highlightedText = 
-                        highlightedText.slice(0, index) + 
-                        highlightedChange + 
-                        highlightedText.slice(index + change.after.length);
-                }
-            }
-            return highlightedText;
+        function getHighlightClass(type) {
+            type = type.toLowerCase();
+            if (type.includes('grammar')) return 'highlight-grammar';
+            if (type.includes('spelling')) return 'highlight-spelling';
+            return 'highlight-other';
         }
 
         function displayChanges(result) {
-            // Previous change display code remains the same
+            // Display AI-reported changes
+            const aiChangesHtml = result.aiChanges.map(change => {
+                const highlightClass = getHighlightClass(change.type);
+                return `
+                    <div class="change-item">
+                        <div class="change-type">${change.type}</div>
+                        <div class="change-text">Before: ${change.before}</div>
+                        <div class="change-text">After: <span class="${highlightClass}">${change.after}</span></div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('ai-changes').innerHTML = aiChangesHtml;
 
-            // Apply highlights to main edited text
-            const highlightedEditedText = applyHighlightsToEditedText(result.editedText, result.aiChanges);
-            document.getElementById('edited-display').innerHTML = highlightedEditedText;
+            // Apply highlights to the edited text display
+            let highlightedText = result.editedText;
+            result.aiChanges.forEach(change => {
+                const highlightClass = getHighlightClass(change.type);
+                highlightedText = highlightedText.replace(
+                    change.after,
+                    `<span class="${highlightClass}">${change.after}</span>`
+                );
+            });
+            document.getElementById('edited-display').innerHTML = highlightedText;
         }
 
-        // Rest of your script remains the same
+        document.getElementById('analyze-btn').addEventListener('click', async () => {
+            const manuscriptText = document.getElementById('manuscript-input').value;
+            const analyzeBtn = document.getElementById('analyze-btn');
+            const editedDisplay = document.getElementById('edited-display');
+
+            if (!manuscriptText.trim()) {
+                alert('Please enter some text to edit');
+                return;
+            }
+
+            analyzeBtn.disabled = true;
+            editedDisplay.textContent = 'Analyzing...';
+
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: manuscriptText })
+                });
+
+                const result = await response.json();
+                console.log('Server response:', result);
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'Failed to edit text');
+                }
+
+                if (result.success) {
+                    displayChanges(result);
+                } else {
+                    throw new Error(result.error || 'Editing failed');
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+                console.error('Analysis error:', error);
+            } finally {
+                analyzeBtn.disabled = false;
+            }
+        });
     </script>
 </body>
 </html>
