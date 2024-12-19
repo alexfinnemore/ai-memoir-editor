@@ -29,29 +29,34 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('Server response:', result);
 
             if (result.success) {
-                // Set initial text
-                editedDisplay.textContent = result.editedText;
-                
-                // Apply highlights to edited text
-                if (result.aiChanges && result.aiChanges.length > 0) {
-                    let highlightedText = result.editedText;
-                    
-                    // Sort changes by length (longest first) to handle overlapping changes
-                    result.aiChanges.sort((a, b) => b.after.length - a.after.length);
-                    
-                    // Apply each highlight
-                    result.aiChanges.forEach(change => {
-                        const escapedAfter = escapeRegExp(change.after);
-                        const regex = new RegExp(escapedAfter, 'g');
-                        highlightedText = highlightedText.replace(
-                            regex,
-                            `<span class="highlight-${change.type.toLowerCase()}">${change.after}</span>`
-                        );
-                    });
-                    
-                    editedDisplay.innerHTML = highlightedText;
-                }
-                
+                // Highlight original text
+                let highlightedOriginal = result.originalText;
+                result.aiChanges.forEach(change => {
+                    const escapedBefore = escapeRegExp(change.before);
+                    const regex = new RegExp(escapedBefore, 'g');
+                    highlightedOriginal = highlightedOriginal.replace(
+                        regex,
+                        `<span class="original-highlight">${change.before}</span>`
+                    );
+                });
+                manuscriptInput.style.display = 'none';
+                const originalDisplay = document.createElement('div');
+                originalDisplay.className = 'text-area';
+                originalDisplay.innerHTML = highlightedOriginal;
+                manuscriptInput.parentNode.insertBefore(originalDisplay, manuscriptInput.nextSibling);
+
+                // Highlight edited text
+                let highlightedEdited = result.editedText;
+                result.aiChanges.forEach(change => {
+                    const escapedAfter = escapeRegExp(change.after);
+                    const regex = new RegExp(escapedAfter, 'g');
+                    highlightedEdited = highlightedEdited.replace(
+                        regex,
+                        `<span class="highlight-${change.type.toLowerCase()}">${change.after}</span>`
+                    );
+                });
+                editedDisplay.innerHTML = highlightedEdited;
+
                 // Display changes section
                 displayChanges(result.aiChanges);
             } else {
