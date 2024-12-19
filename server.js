@@ -9,9 +9,8 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
-function sanitizeJson(str) {
-    // Remove control characters and escape sequences
-    return str.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+function isActualChange(before, after) {
+    return before.trim() !== after.trim();
 }
 
 async function analyzeText(text) {
@@ -21,25 +20,38 @@ async function analyzeText(text) {
             messages: [
                 {
                     role: "system",
-                    content: `You are an expert memoir editor. Analyze and edit the provided text.
+                    content: `You are an expert memoir editor. Analyze and improve the provided text with these specific goals:
 
-PROVIDE YOUR RESPONSE AS A VALID JSON OBJECT with this exact structure:
+1. Fix any grammar, spelling, or punctuation errors
+2. Improve style and clarity
+3. Enhance emotional impact and readability
+
+Rules:
+1. Make CONCRETE changes that improve the text
+2. Only include changes where the 'after' text is different from the 'before' text
+3. Maintain the author's voice and key details
+4. Preserve all formatting and line breaks exactly
+
+Respond in JSON format:
 {
     "editedText": "the complete edited text",
     "changes": [
         {
-            "type": "grammar|style|spelling",
-            "before": "original text snippet",
-            "after": "edited text snippet"
+            "type": "grammar|spelling|style",
+            "before": "exact original text that was changed",
+            "after": "exact new text that replaced it",
+            "explanation": "specific reason for this change"
         }
     ]
 }
 
-Rules:
-1. Keep all formatting (line breaks, paragraphs) exactly as in the original
-2. Mark EACH individual change (grammar, spelling, style)
-3. NO line breaks or special characters in the json values
-4. Keep change snippets short and specific`
+Example of good changes:
+- Before: "I seen him yesterday"
+  After: "I saw him yesterday"
+- Before: "It was good"
+  After: "It was magnificent"
+
+Do not include changes where the before and after are identical.`
                 },
                 {
                     role: "user",
@@ -49,35 +61,28 @@ Rules:
             temperature: 0.7
         });
 
-        // Clean the response and parse JSON
-        const cleanResponse = sanitizeJson(response.choices[0].message.content);
-        console.log('Cleaned response:', cleanResponse);
+        const result = JSON.parse(response.choices[0].message.content);
         
-        const result = JSON.parse(cleanResponse);
-        console.log('Parsed result:', result);
+        // Filter out non-changes
+        result.changes = result.changes.filter(change => 
+            isActualChange(change.before, change.after)
+        );
 
         return {
             success: true,
             editedText: result.editedText,
             aiChanges: result.changes,
-            diffChanges: [],
             stats: {
-                aiChangeCount: result.changes.length,
-                diffChangeCount: 0
+                aiChangeCount: result.changes.length
             }
         };
     } catch (error) {
         console.error('OpenAI API Error:', error);
-        console.error('Full error:', error);
         return {
             success: false,
             error: `Analysis failed: ${error.message}`,
             aiChanges: [],
-            diffChanges: [],
-            stats: {
-                aiChangeCount: 0,
-                diffChangeCount: 0
-            }
+            stats: { aiChangeCount: 0 }
         };
     }
 }
@@ -122,8 +127,7 @@ const server = http.createServer(async (req, res) => {
                     success: false, 
                     error: 'Server error: ' + error.message,
                     aiChanges: [],
-                    diffChanges: [],
-                    stats: { aiChangeCount: 0, diffChangeCount: 0 }
+                    stats: { aiChangeCount: 0 }
                 }));
             }
         });
