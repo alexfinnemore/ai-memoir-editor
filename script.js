@@ -29,6 +29,29 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('Server response:', result);
 
             if (result.success) {
+                // Update original text with highlighting
+                const originalText = manuscriptInput.value;
+                let highlightedOriginal = escapeHtml(originalText);
+                
+                // Highlight the 'before' sections in the original text
+                result.aiChanges.forEach(change => {
+                    const beforeText = escapeHtml(change.before);
+                    const regex = new RegExp(beforeText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+                    highlightedOriginal = highlightedOriginal.replace(
+                        regex,
+                        `<span class="original-highlight" title="Changed to: ${escapeHtml(change.after)}">${beforeText}</span>`
+                    );
+                });
+
+                // Create a div to hold the highlighted original text
+                manuscriptInput.style.display = 'none';
+                let originalDisplay = document.createElement('div');
+                originalDisplay.className = 'text-area';
+                originalDisplay.style.whiteSpace = 'pre-wrap';
+                originalDisplay.innerHTML = highlightedOriginal;
+                manuscriptInput.parentNode.insertBefore(originalDisplay, manuscriptInput.nextSibling);
+
+                // Highlight changes in edited text
                 highlightChanges(result.editedText, result.aiChanges);
                 displayChanges(result.aiChanges);
             } else {
@@ -67,7 +90,7 @@ function highlightChanges(editedText, changes) {
         // Use regex to match the exact phrase while preserving whitespace
         const regex = new RegExp(escapeHtml(change.after).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
         highlightedText = highlightedText.replace(regex, 
-            `<span class="${highlightClass}" title="${escapeHtml(change.explanation)}">${afterText}</span>`);
+            `<span class="${highlightClass}" title="Original: ${escapeHtml(change.before)}">${afterText}</span>`);
     });
 
     editedDisplay.innerHTML = highlightedText;
