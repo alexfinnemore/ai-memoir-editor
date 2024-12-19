@@ -29,7 +29,21 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('Server response:', result);
 
             if (result.success) {
-                editedDisplay.textContent = result.editedText;
+                // Set the edited text content first
+                editedDisplay.innerHTML = escapeHtml(result.editedText);
+                
+                // Then apply highlights to the edited text
+                result.aiChanges.forEach(change => {
+                    const afterText = escapeHtml(change.after);
+                    const highlightClass = `highlight-${change.type.toLowerCase()}`;
+                    const regex = new RegExp(escapeHtml(change.after).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+                    editedDisplay.innerHTML = editedDisplay.innerHTML.replace(
+                        regex,
+                        `<span class="${highlightClass}">${afterText}</span>`
+                    );
+                });
+
+                // Update changes section
                 displayChanges(result.aiChanges);
             } else {
                 throw new Error(result.error || 'Analysis failed');
@@ -43,6 +57,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+function escapeHtml(unsafe) {
+    return unsafe
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 function displayChanges(changes) {
     const aiChangesDiv = document.getElementById('ai-changes');
     if (!changes || !changes.length) {
@@ -51,11 +74,13 @@ function displayChanges(changes) {
     }
 
     const html = changes.map(change => `
-        <div class="change">
-            <strong>${change.type}</strong>
-            <p>Before: ${change.before}</p>
-            <p>After: ${change.after}</p>
-            <p><em>${change.explanation}</em></p>
+        <div class="change-item">
+            <div class="change-type ${change.type.toLowerCase()}">${change.type}</div>
+            <div class="change-content">
+                <p><strong>Before:</strong> <span class="original-highlight">${escapeHtml(change.before)}</span></p>
+                <p><strong>After:</strong> <span class="highlight-${change.type.toLowerCase()}">${escapeHtml(change.after)}</span></p>
+                <p class="explanation"><em>${escapeHtml(change.explanation)}</em></p>
+            </div>
         </div>
     `).join('');
 
