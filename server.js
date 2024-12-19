@@ -61,23 +61,29 @@ Do not include changes where the before and after are identical.`
             temperature: 0.7
         });
 
+        console.log('Raw GPT response:', response.choices[0].message.content);
         const result = JSON.parse(response.choices[0].message.content);
+        console.log('Parsed response:', result);
         
         // Filter out non-changes
-        result.changes = result.changes.filter(change => 
+        const realChanges = result.changes.filter(change => 
             isActualChange(change.before, change.after)
         );
+        
+        console.log('Filtered changes:', realChanges);
 
         return {
             success: true,
             editedText: result.editedText,
-            aiChanges: result.changes,
+            aiChanges: realChanges,
+            originalText: text,
             stats: {
-                aiChangeCount: result.changes.length
+                aiChangeCount: realChanges.length
             }
         };
     } catch (error) {
         console.error('OpenAI API Error:', error);
+        console.error('Full error:', error);
         return {
             success: false,
             error: `Analysis failed: ${error.message}`,
