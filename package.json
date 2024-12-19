@@ -2,7 +2,7 @@
     "name": "ai-memoir-editor",
     "version": "0.2.0",
     "description": "AI-powered manuscript editing web application",
-    "main": "server.js",
+    "type": "module",
     "scripts": {
         "start": "NODE_NO_WARNINGS=1 node server.js",
         "dev": "vite",
