@@ -29,21 +29,30 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('Server response:', result);
 
             if (result.success) {
-                // Set the edited text content first
-                editedDisplay.innerHTML = escapeHtml(result.editedText);
+                // Set initial text
+                editedDisplay.textContent = result.editedText;
                 
-                // Then apply highlights to the edited text
-                result.aiChanges.forEach(change => {
-                    const afterText = escapeHtml(change.after);
-                    const highlightClass = `highlight-${change.type.toLowerCase()}`;
-                    const regex = new RegExp(escapeHtml(change.after).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-                    editedDisplay.innerHTML = editedDisplay.innerHTML.replace(
-                        regex,
-                        `<span class="${highlightClass}">${afterText}</span>`
-                    );
-                });
-
-                // Update changes section
+                // Apply highlights to edited text
+                if (result.aiChanges && result.aiChanges.length > 0) {
+                    let highlightedText = result.editedText;
+                    
+                    // Sort changes by length (longest first) to handle overlapping changes
+                    result.aiChanges.sort((a, b) => b.after.length - a.after.length);
+                    
+                    // Apply each highlight
+                    result.aiChanges.forEach(change => {
+                        const escapedAfter = escapeRegExp(change.after);
+                        const regex = new RegExp(escapedAfter, 'g');
+                        highlightedText = highlightedText.replace(
+                            regex,
+                            `<span class="highlight-${change.type.toLowerCase()}">${change.after}</span>`
+                        );
+                    });
+                    
+                    editedDisplay.innerHTML = highlightedText;
+                }
+                
+                // Display changes section
                 displayChanges(result.aiChanges);
             } else {
                 throw new Error(result.error || 'Analysis failed');
@@ -56,6 +65,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 function escapeHtml(unsafe) {
     return unsafe
