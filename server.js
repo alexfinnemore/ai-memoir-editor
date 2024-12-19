@@ -9,6 +9,27 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
+function serveStaticFile(res, filename) {
+    const filePath = path.join(__dirname, filename);
+    fs.readFile(filePath, (err, content) => {
+        if (err) {
+            res.writeHead(500);
+            res.end(`Error loading ${filename}`);
+            return;
+        }
+
+        const ext = path.extname(filename);
+        const contentType = {
+            '.html': 'text/html',
+            '.js': 'text/javascript',
+            '.css': 'text/css'
+        }[ext] || 'text/plain';
+
+        res.writeHead(200, { 'Content-Type': contentType });
+        res.end(content);
+    });
+}
+
 function isActualChange(before, after) {
     return before.trim() !== after.trim();
 }
@@ -104,18 +125,16 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    if (req.url === '/' && req.method === 'GET') {
-        fs.readFile(path.join(__dirname, 'index.html'), (err, content) => {
-            if (err) {
-                res.writeHead(500);
-                res.end('Error loading index.html');
-            } else {
-                res.writeHead(200, { 'Content-Type': 'text/html' });
-                res.end(content);
-            }
-        });
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const pathname = url.pathname;
+
+    if (pathname === '/' && req.method === 'GET') {
+        serveStaticFile(res, 'index.html');
     }
-    else if (req.url === '/analyze' && req.method === 'POST') {
+    else if (pathname === '/script.js' && req.method === 'GET') {
+        serveStaticFile(res, 'script.js');
+    }
+    else if (pathname === '/analyze' && req.method === 'POST') {
         let body = '';
         req.on('data', chunk => {
             body += chunk.toString();
