@@ -36,8 +36,10 @@ function isActualChange(before, after) {
 
 async function analyzeText(text) {
     try {
+        console.log('Analyzing text:', text.substring(0, 100) + '...');
+
         const response = await openai.chat.completions.create({
-            model: 'gpt-3.5-turbo',
+            model: 'gpt-4',  // Using GPT-4 for better analysis
             messages: [
                 {
                     role: "system",
@@ -51,7 +53,8 @@ Rules:
 1. Make CONCRETE changes that improve the text
 2. Only include changes where the 'after' text is different from the 'before' text
 3. Maintain the author's voice and key details
-4. Preserve all formatting and line breaks exactly
+4. Make substantial edits to improve the text
+5. For each change, the 'before' text must be an exact match of text in the original
 
 Respond in JSON format:
 {
@@ -79,7 +82,8 @@ Do not include changes where the before and after are identical.`
                     content: text
                 }
             ],
-            temperature: 0.7
+            temperature: 0.7,
+            max_tokens: 2000
         });
 
         console.log('Raw GPT response:', response.choices[0].message.content);
@@ -141,8 +145,13 @@ const server = http.createServer(async (req, res) => {
         });
         req.on('end', async () => {
             try {
+                console.log('Received POST request to /analyze');
                 const { text } = JSON.parse(body);
+                console.log('Received text:', text.substring(0, 100) + '...');
+                
                 const result = await analyzeText(text);
+                console.log('Analysis result:', result);
+                
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify(result));
             } catch (error) {
