@@ -34,12 +34,17 @@ function isActualChange(before, after) {
     return before.trim() !== after.trim();
 }
 
+function sanitizeJsonString(str) {
+    // Remove control characters
+    return str.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+}
+
 async function analyzeText(text) {
     try {
         console.log('Analyzing text:', text.substring(0, 100) + '...');
 
         const response = await openai.chat.completions.create({
-            model: 'gpt-4',  // Using GPT-4 for better analysis
+            model: 'gpt-4',
             messages: [
                 {
                     role: "system",
@@ -55,27 +60,20 @@ Rules:
 3. Maintain the author's voice and key details
 4. Make substantial edits to improve the text
 5. For each change, the 'before' text must be an exact match of text in the original
+6. Return clean JSON without any control characters
 
 Respond in JSON format:
 {
     "editedText": "the complete edited text",
     "changes": [
         {
-            "type": "grammar|spelling|style",
+            "type": "style",
             "before": "exact original text that was changed",
             "after": "exact new text that replaced it",
             "explanation": "specific reason for this change"
         }
     ]
-}
-
-Example of good changes:
-- Before: "I seen him yesterday"
-  After: "I saw him yesterday"
-- Before: "It was good"
-  After: "It was magnificent"
-
-Do not include changes where the before and after are identical.`
+}`
                 },
                 {
                     role: "user",
@@ -86,16 +84,20 @@ Do not include changes where the before and after are identical.`
             max_tokens: 2000
         });
 
-        console.log('Raw GPT response:', response.choices[0].message.content);
-        const result = JSON.parse(response.choices[0].message.content);
-        console.log('Parsed response:', result);
+        console.log('Raw GPT response received');
+        // Sanitize the JSON string before parsing
+        const sanitizedResponse = sanitizeJsonString(response.choices[0].message.content);
+        console.log('Sanitized response');
+        
+        const result = JSON.parse(sanitizedResponse);
+        console.log('Successfully parsed JSON');
         
         // Filter out non-changes
         const realChanges = result.changes.filter(change => 
             isActualChange(change.before, change.after)
         );
         
-        console.log('Filtered changes:', realChanges);
+        console.log(`Found ${realChanges.length} real changes`);
 
         return {
             success: true,
@@ -150,7 +152,7 @@ const server = http.createServer(async (req, res) => {
                 console.log('Received text:', text.substring(0, 100) + '...');
                 
                 const result = await analyzeText(text);
-                console.log('Analysis result:', result);
+                console.log('Analysis complete');
                 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify(result));
